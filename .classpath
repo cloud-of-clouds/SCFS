@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/java-7-openjdk-amd64"/>
+	<classpathentry kind="lib" path="lib/AmazonAccess.jar"/>
+	<classpathentry kind="lib" path="lib/azure-common-1.5.4.jar"/>
+	<classpathentry kind="lib" path="lib/azureblob-1.5.4.jar"/>
+	<classpathentry kind="lib" path="lib/commons-codec-1.5.jar"/>
+	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
+	<classpathentry kind="lib" path="lib/DepSkyDependencies.jar"/>
+	<classpathentry kind="lib" path="lib/fuse-j-javadoc.jar"/>
+	<classpathentry kind="lib" path="lib/fuse-j.jar"/>
+	<classpathentry kind="lib" path="lib/GoogleSAccess.jar"/>
+	<classpathentry kind="lib" path="lib/groovy-1.0-JSR-06.jar"/>
+	<classpathentry kind="lib" path="lib/JReedSolEC.jar"/>
+	<classpathentry kind="lib" path="lib/netty-3.1.1.GA.jar"/>
+	<classpathentry kind="lib" path="lib/PVSS.jar"/>
+	<classpathentry kind="lib" path="lib/RackAzureAccess.jar"/>
+	<classpathentry kind="lib" path="lib/SMaRt.jar"/>
+	<classpathentry kind="lib" path="lib/DepSpace.jar"/>
+	<classpathentry kind="lib" path="/home/ricardo/workspaceJava/DepSky/bin"/>
+	<classpathentry kind="lib" path="/home/ricardo/workspaceJava/DepSky/src"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
