@@ -1411,17 +1411,19 @@ public class SCFS implements Filesystem3, XattrSupport {
 class ShutDownThread extends Thread {
 	private String mountPoint;
 	private Thread thread;
+	
 	public ShutDownThread(String mountPoint, Thread thread) {
 		this.thread = thread;
 		this.mountPoint = mountPoint;
 	}
 
+	@SuppressWarnings("deprecation")
 	public void run() {
 		System.out.println("\n\nSCFS ShutDown!!\nPlease authenticate your sudo account to umount the system.\nMake sure you are not using the mountPoint right now.");
 		thread.stop();
 		try {
 			Thread.sleep(1000);
-			Process p = Runtime.getRuntime().exec("gksudo -D SCFS_umount umount " + mountPoint);
+			Runtime.getRuntime().exec("gksudo -D SCFS_umount umount " + mountPoint);
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (InterruptedException e) {
