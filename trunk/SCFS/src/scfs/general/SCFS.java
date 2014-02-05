@@ -1170,6 +1170,8 @@ public class SCFS implements Filesystem3, XattrSupport {
 			if(!config.isNonSharing()){
 				try{
 					List<String[]> l = directoryService.getCredentials(id);
+					for(String[] sx : l)
+						cannonicalIds.add(new Pair<String, String>(sx[0], sx[1]));
 				}catch (DirectoryServiceConnectionProblemException e){
 					System.err.println("DirectoryServiceConnectionProblemException - getCredential.");
 				}catch (DirectoryServiceException e){
@@ -1411,7 +1413,6 @@ public class SCFS implements Filesystem3, XattrSupport {
 class ShutDownThread extends Thread {
 	private String mountPoint;
 	private Thread thread;
-	
 	public ShutDownThread(String mountPoint, Thread thread) {
 		this.thread = thread;
 		this.mountPoint = mountPoint;
