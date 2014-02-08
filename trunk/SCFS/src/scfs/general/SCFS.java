@@ -1423,8 +1423,8 @@ class ShutDownThread extends Thread {
 		System.out.println("\n\nSCFS ShutDown!!\nPlease authenticate your sudo account to umount the system.\nMake sure you are not using the mountPoint right now.");
 		thread.stop();
 		try {
-			Thread.sleep(1000);
-			Runtime.getRuntime().exec("gksudo -D SCFS_umount umount " + mountPoint);
+			Thread.sleep(100);
+			Runtime.getRuntime().exec("gksudo -g -D SCFS_umount umount " + mountPoint);
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (InterruptedException e) {
