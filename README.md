@@ -16,7 +16,7 @@ The figure bellow presents the architecture of SCFS with its three main componen
 <FIGURE>
 
 The figure shows the backend cloud storage as cloud-of-clouds formed by Amazon S3, Google Storage, RackSpace Cloud Files and Windows Azure.
-To store data in this clouds, SCFS uses DepSky. More specifically, uses DepSky-CA protocol once we want address the main cloud storage limitations (see DepSky).
+To store data in this clouds, SCFS uses [DepSky](https://github.com/cloud-of-clouds/depsky). More specifically, uses DepSky-CA protocol once we want address the main cloud storage limitations (see [DepSky](https://github.com/cloud-of-clouds/depsky)).
 SCFS allows also a different backend formed by only one cloud.
 
 The coordination services used by SCFS are DepSpace and ZooKepper. In the figure above they are installed in computing clouds, but they can be installed on any IaaS or in any server. To get more information about theses system please read the referred papers. DepSpace is described on a EuroSys'08 paper and ZooKepper on a Usenix'10 paper.
