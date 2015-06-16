@@ -47,7 +47,6 @@ If you have any question, take a look at the [site](http://cloud-of-clouds.githu
 	- [Mounting SCFS](#mounting-scfs)
 		- [Non-Sharing SCFS](#non-sharing-scfs)
 	- [Using SCFS](#using-scfs)
-		-
 ***
 
 ### Getting Started with SCFS 
