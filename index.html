@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>SCFS by cloud-of-clouds</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">SCFS</h1>
+      <h2 class="project-tagline">&quot;Shared Cloud-backed File System&quot;</h2>
+      <a href="https://github.com/cloud-of-clouds/SCFS" class="btn">View on GitHub</a>
+      <a href="https://github.com/cloud-of-clouds/SCFS/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/cloud-of-clouds/SCFS/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <p>SCFS is a cloud-backed file system that provides strong consistency even on top of eventually-consistent cloud storage services. It is build on top of <a href="http://fuse.sourceforge.net/">FUSE</a>, thus providing a POSIX-like interface.
+SCFS provides also a pluggable backend that allows it to work with a single cloud or with a cloud-of-clouds.
+The design, implementation and evaluation of the system is described in our <a href="http://www.di.fc.ul.pt/%7Ebessani/publications/usenix14-scfs.pdf">USENIX ATC'14 paper</a>.</p>
+
+<p>Its main concern is address some of the problems presented on the other existing cloud-backed file systems:</p>
+
+<ol>
+<li>Most of them not support controlled file sharing among clients.</li>
+<li>Some, use a proxy to connect with the cloud storage, which is a single point of failure, once if it is down, no client can access to the data stored at the cloud side.</li>
+<li>Almost all file systems use only a single cloud as backend.</li>
+</ol>
+
+<h2>
+<a id="architecture" class="anchor" href="#architecture" aria-hidden="true"><span class="octicon octicon-link"></span></a>Architecture</h2>
+
+<p>The figure bellow presents the architecture of SCFS with its three main components: the backend cloud storage for maintaining the file data; the coordination service for managing the metadata and to support synchronization; and the SCFS Agent that implements most of the SCFS functionality, and corresponds to the file system client mounted at the user machine.</p>
+
+<p><code>&lt;FIGURE&gt;</code></p>
+
+<p>The figure shows the backend cloud storage as cloud-of-clouds formed by Amazon S3, Google Storage, RackSpace Cloud Files and Windows Azure. To store data in this clouds, SCFS uses DepSky. More specifically, uses DepSky-CA protocol once we want address the main cloud storage limitations (see DepSky). SCFS allows also a different backend formed by only one cloud.</p>
+
+<p>The coordination services used by SCFS are DepSpace and ZooKepper. In the figure above they are installed in computing clouds, but they can be installed on any IaaS or in any server. To get more information about theses system please read the referred papers. <a href="https://github.com/bft-smart/depspace">DepSpace</a> is described on a <a href="http://www.di.fc.ul.pt/%7Ebessani/publications/eurosys08-depspace.pdf">EuroSys'08 paper</a> and ZooKepper on a <a href="https://www.usenix.org/legacy/event/usenix10/tech/full_papers/Hunt.pdf">Usenix'10 paper</a>.</p>
+
+<p>The SCFS Agent component is the one that implements the most features of the file system. It makes a lot of usage of cache techniques to improve the system performance, to reduce the monetary costs and to increase the data availability. More Specifically it uses a temporary small memory cache to absorb some metadata update bursts, a main memory cache to maintain data of open files, and a bigger disk cache to save all the most recents files used by the client. The last one uses all the free space in disk. After the disk is full it uses LRU policies to create new space.</p>
+
+<h2>
+<a id="operation-modes" class="anchor" href="#operation-modes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Operation Modes</h2>
+
+<p>SCFS is a very configurable file system, once clients can use it according with their needs. There is four main configurations that change both the file system behaviour as the provided guarantees:</p>
+
+<p>The system can be configured to use only one cloud or a cloud-of-clouds for both the backend cloud storage as to the coordination service.
+The client can choose if it uses the main memory cache to store open files data, or not.
+The sending of data to the clouds can be synchronous or asynchronous.
+The system can be sharing or non-sharing. If non-sharing configuration is used the system does not uses none coordination service. Is considered that all files are private (not shared), therefore all the metadata can be stored in the storage clouds.</p>
+
+<hr>
+
+<h2>
+<a id="getting-started-with-scfs" class="anchor" href="#getting-started-with-scfs" aria-hidden="true"><span class="octicon octicon-link"></span></a>Getting Started with SCFS</h2>
+
+<p>Here you can find how to configure, install and use the available version of SCFS. The version we provide uses DepSpace as coordination service and Amazon S3 as single cloud storage backend. </p>
+
+<p>The first step is downloadd the latest version available of SCFS. After that you need to extract the archive downloaded. Make sure you have java 1.7 or later installed.</p>
+
+<p>Next, you need to link the system with the Fuse on your machine. To do that, you just need to run a script we provide in the project's root directory. If you have a x64 Java installed, you just need to run:</p>
+
+<p><code>./configure_x64.sh</code></p>
+
+<p>In the other hand, if your java is a x86 version, please run:</p>
+
+<p><code>./configure_x86.sh</code></p>
+
+<p>In the next step you just need to set your JAVA_HOME and FUSE_HOME in the build.conf file. Usually, your fuse home will be in /usr/local. The JAVA_HOME will depend on the java version you have installed on your machine.</p>
+
+<p>The next step is to configure the remain configuration files. More specifically, it is necessary to fill configuration files for DepSky and DepSpace. The following subsections explain how to do it.</p>
+
+<h3>
+<a id="setting-up-depsky" class="anchor" href="#setting-up-depsky" aria-hidden="true"><span class="octicon octicon-link"></span></a>Setting up DepSky</h3>
+
+<p>To fill DepSky configuration files please read the <em>'Getting Started with DepSky'</em> section in DepSky page. Here you can learn how to create the cloud storage accounts and where you can find the necessary API keys.</p>
+
+<p>If you want to share files with other users, you have also to fill the canonicalId field in each entry of the accounts.properties. The version avilable of the system only allows sharing files between different accounts if you use only Amazon S3 (both in one single cloud and cloud-of-clouds backends). You can find your canonical Id in the Security Credentials page of your AWS Management Console.</p>
+
+<p>You can use also SCFS with only one cloud storage as backend. For now, we only support Amazon S3. To configure it you just need to delete the last three entries in the account.properties file (see HowToUseDepSky). Your file must be equal to the content below:</p>
+
+<pre><code>#AMAZON
+driver.type=AMAZON-S3
+driver.id=cloud1
+accessKey=********************
+secretKey=****************************************
+location=EU_Ireland
+canonicalId=******************************************************
+</code></pre>
+
+<h3>
+<a id="setting-up-depspace" class="anchor" href="#setting-up-depspace" aria-hidden="true"><span class="octicon octicon-link"></span></a>Setting up DepSpace</h3>
+
+<p><a href="https://github.com/bft-smart/depspace">DepSpace</a> configuration consists in two main steps; the address and port configuration of all DepSpace's replicas, and the configuration of system parameters. This could be done in config/hosts.config and config/system.config files respectively. To comment out a configuration parameter in those files, the line must start with the character #.</p>
+
+<p>DepSpace is built on top of <a href="https://github.com/bft-smart/library">BFT-SMaRt</a>. Please take a look at <em>How to run BFT-SMaRt</em>.</p>
+
+<p>In <em>hosts.config</em> file you can set the address and port of all DepSpace replicas. The configuration file should look like this:</p>
+
+<pre><code>#server id, address and port (the ids from 0 to n-1 are the service replicas) 
+0 127.0.0.1 11000
+1 127.0.0.1 11010
+2 127.0.0.1 11020
+3 127.0.0.1 11030
+4 127.0.0.1 11040
+5 127.0.0.1 11050
+6 127.0.0.1 11060
+7 127.0.0.1 11070
+</code></pre>
+
+<p>After the configuration of the replicas address and port, you can set the parameter Besides the parameters you need to set to BFT-SMaRt, there are others you need to configure to DepSpace. These parameters are described below:</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Values</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>system.general.rdRetryTime</td>
+<td>The time the system blocks on rd operation waiting for a match tuple in the space. SCFS does not uses this operation.</td>
+<td>Integer (miliseconds)</td>
+<td>10000</td>
+</tr>
+<tr>
+<td>system.general.realTimeRenew</td>
+<td>Use or not of renewable tuples. Note that SCFS needs this parameter to be true.</td>
+<td>true or false</td>
+<td>true</td>
+</tr>
+<tr>
+<td>system.general.logging</td>
+<td>Use or not of logging. Set this parameter to true if you want it.</td>
+<td>true or false</td>
+<td>false</td>
+</tr>
+<tr>
+<td>system.general.logging.mode</td>
+<td>Set the logging mode. The modes are: 0=(no logging), 1="rw", 2="rws", (any other)="rwd"</td>
+<td>Integer</td>
+<td>0</td>
+</tr>
+<tr>
+<td>system.general.batching</td>
+<td>Use batches of messages. We recommend you to set this to false.</td>
+<td>true or false</td>
+<td>false</td>
+</tr>
+<tr>
+<td>system.general.checkpoint_period</td>
+<td>The period (number of operation) in which the system performs a checkpoint of its state.</td>
+<td>Integer</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>system.general.replaceTrigger</td>
+<td>The usage or not of the DepSpace's replace trigger layer. Note that SCFS needs this layer to work correctly.</td>
+<td>true or false</td>
+<td>true</td>
+</tr>
+</tbody>
+</table>
+
+<p>We recommend you to use the default values set in the <em>config/system.config</em> file available.</p>
+
+<h4>
+<a id="public-keys" class="anchor" href="#public-keys" aria-hidden="true"><span class="octicon octicon-link"></span></a>Public Keys</h4>
+
+<p>We provide some default DepSpace keys. However, if you need to generate new public/private keys for DepSpace replicas or clients, you can use the following command to generate files for public and private keys:</p>
+
+<p><code>./rsaKeyPairGenerator.sh &lt;id of the replica/client&gt;</code></p>
+
+<p>Keys are stored in the <em>config/keys</em> folder. The command above creates key pairs both for clients and replicas. Currently such keys need to be manually distributed.</p>
+
+<h4>
+<a id="using-depspace-with-just-1-replica" class="anchor" href="#using-depspace-with-just-1-replica" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using DepSpace with just 1 replica</h4>
+
+<p>The default <em>system.config</em> and <em>hosts.config</em> files are set to use Byzantine Fault tolerant DepSpace (using 3f+1 replicas).</p>
+
+<p>To use DepSpace without any fault tolerance guarantee, some modification need to be done in the <em>config/system.config</em> file. In this way you need to set the following parameters of this file:</p>
+
+<pre><code>#Number of servers in the group
+system.servers.num = 1
+</code></pre>
+
+<pre><code>#Maximum number of faulty replicas 
+system.servers.f = 0
+</code></pre>
+
+<pre><code>#Initial View 
+system.initial.view = 0
+</code></pre>
+
+<p>You also need to reconfigure the replicas' address/port. To do that, you should update your <em>config/hosts.config</em> file to look like the following:</p>
+
+<pre><code>#server id, address and port (the ids from 0 to n-1 are the service replicas) 
+0 127.0.0.1 11000
+</code></pre>
+
+<h3>
+<a id="deploying-depspace" class="anchor" href="#deploying-depspace" aria-hidden="true"><span class="octicon octicon-link"></span></a>Deploying DepSpace</h3>
+
+<p>To deploy DepSpace in a server (being it in the clouds or in other location), you first need to get the files to deploy. This files can be generated by executing the command bellow:</p>
+
+<p><code>./generateDepSpaceToDeploy.sh</code></p>
+
+<p>This script will generate a zip file (DepSpace.zip) with the configurations you did for the DepSpace locally (namely the <em>hosts.config</em> file). To deploy DepSpace other sites, you just need to upload de generated file to these sites and unzip it:</p>
+
+<p><code>unzip DepSpace.zip</code></p>
+
+<p>After unzip the file, to run the DepSpace in each site, you just need to run the <em>runDepSpace.sh</em> script in each site. You can find this script inside the DepSpace folder after you unzip the file. To execute this script you should run the follow command:</p>
+
+<p><code>./runDepSpace.sh &lt;replicaID&gt;</code></p>
+
+<h3>
+<a id="mounting-scfs" class="anchor" href="#mounting-scfs" aria-hidden="true"><span class="octicon octicon-link"></span></a>Mounting SCFS</h3>
+
+<p>To mount SCFS you just need to run the following command in the root of the project:</p>
+
+<p><code>./mountSCFS.sh &lt;mountPoint&gt; &lt;clientID&gt;</code></p>
+
+<p>The meaning of the two given arguments are:</p>
+
+<ul>
+<li><p><em>mountPoint</em> - the folder where SCFS will be mounted;</p></li>
+<li><p><em>clientID</em> - the identifier of the client (must be unique).</p></li>
+</ul>
+
+<p>Each time you mount the system you are able to define how the system will behave, opting for several parameters. This parameters will have influence in the system guarantees and performance. Note that the default behavior of the system (the command presented before) provides the highest level of guarantees and the lower performance.</p>
+
+<p>In the table bellow are shown all the flags that can be turned on:</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-optimizedCache</td>
+<td>Use of main memory data cache.</td>
+<td>off</td>
+</tr>
+<tr>
+<td>--sync-to-cloud</td>
+<td>The FSYNC POSIX operation flushes the data to the clouds. If turned off, FSYNC flushes data to local disk.</td>
+<td>off</td>
+</tr>
+<tr>
+<td>--non-blocking-cloud</td>
+<td>Data is sent to the clouds asynchronously. If turned off, the file close operation will block when data are sent to the clouds.</td>
+<td>off</td>
+</tr>
+<tr>
+<td>--non-sharing</td>
+<td>The system runs in non-sharing mode of operation. It means that clients are not able to share data between them</td>
+<td>off</td>
+</tr>
+<tr>
+<td>-printer</td>
+<td>Turn on the debug mode.</td>
+<td>off</td>
+</tr>
+</tbody>
+</table>
+
+<p>As you can understand, if the --non-blocking-cloud flag is turned on, the performance of the system is increased while the guarantees offered by the close operation decrease.</p>
+
+<h4>
+<a id="non-sharing-scfs" class="anchor" href="#non-sharing-scfs" aria-hidden="true"><span class="octicon octicon-link"></span></a>Non-Sharing SCFS</h4>
+
+<p>To use this operation mode, you should turn on the <em>--non-sharing</em> flag as shown bellow:</p>
+
+<p><code>./mountSCFS.sh &lt;mountPoint&gt; &lt;clientID&gt; --non-sharing</code></p>
+
+<p>This operation mode is ideal to use the system with its highest performance, backuping the file system data to the clouds. So, the use of <em>--non-blocking-cloud</em> flag are recommended:</p>
+
+<p><code>./mountSCFS.sh &lt;mountPoint&gt; &lt;clientID&gt; --non-sharing --non-blocking-cloud</code></p>
+
+<p>Note: Since all files are personal in this operation mode, it does not need the DepSpace deployment. So, if you want to try SCFS without experience the deployment effort of DepSpace, this is the perfect option to do that.</p>
+
+<h2>
+<a id="using-scfs" class="anchor" href="#using-scfs" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using SCFS</h2>
+
+<p>To use SCFS you just need to enter in the <em></em> folder and operate in the same way you do in your local filesystem. For example, let your SCFS configuration be:</p>
+
+<p><code>./mountSCFS.sh /scfs 4 --non-sharing --non-blocking-cloud -optimizedCache</code></p>
+
+<p>In the example, your <em></em> will be <em>/scfs</em>. So, you just need to operate over the files in that folder to take advantage of SCFS.</p>
+
+<h4>
+<a id="share-a-file-using-scfs" class="anchor" href="#share-a-file-using-scfs" aria-hidden="true"><span class="octicon octicon-link"></span></a>Share a file using SCFS</h4>
+
+<p>To share a file, you just need to use the setfacl command, giving the clientId of the client with which you want to share a file, and the permissions to that client:</p>
+
+<p><code>setfacl -m u:&lt;friendClientID&gt;:&lt;permissions&gt; &lt;fileName&gt;</code></p>
+
+<p>For example, assuming there is a file named <em>file1.txt</em>, to share this file with the client 5 giving full control over the file, you just need to run the following command:</p>
+
+<p><code>setfacl -m u:5:rwx file1.txt</code></p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/cloud-of-clouds/SCFS">SCFS</a> is maintained by <a href="https://github.com/cloud-of-clouds">cloud-of-clouds</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
+
