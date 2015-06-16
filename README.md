@@ -41,8 +41,13 @@ If you have any question, take a look at the [site](http://cloud-of-clouds.githu
 
 
 - [Getting Started with SCFS](#getting-started-with-scfs)
-
-
+	- [Setting up DepSky](#setting-up-depsky)
+	- [Setting up DepSpace](#setting-up-depspace)
+	- [Deploying DepSpace](#deploying-depspace)
+	- [Mounting SCFS](#mounting-scfs)
+		- [Non-Sharing SCFS](#non-sharing-scfs)
+	- [Using SCFS](using-scfs)
+		-
 ***
 
 ### Getting Started with SCFS 
