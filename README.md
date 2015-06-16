@@ -33,7 +33,7 @@ The system can be sharing or non-sharing. If non-sharing configuration is used t
 Is considered that all files are private (not shared), therefore all the metadata can be stored in the storage clouds.
 
 
-If you have any question, take a look at the [site](http://cloud-of-clouds.github.io/SCFS/), [wiki](https://github.com/cloud-of-clouds/SCFS/wiki/Getting-Started-with-SCFS), or to contact us!
+If you have any question, take a look at the [site](http://cloud-of-clouds.github.io/SCFS/) or contact us!
 
 ***
 
