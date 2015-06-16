@@ -23,7 +23,7 @@ The coordination services used by SCFS are DepSpace and ZooKepper. In the figure
 
 The SCFS Agent component is the one that implements the most features of the file system. It makes a lot of usage of cache techniques to improve the system performance, to reduce the monetary costs and to increase the data availability. More Specifically it uses a temporary small memory cache to absorb some metadata update bursts, a main memory cache to maintain data of open files, and a bigger disk cache to save all the most recents files used by the client. The last one uses all the free space in disk. After the disk is full it uses LRU policies to create new space.
 
-### Operation Modes
+##### Operation Modes
 
 SCFS is a very configurable file system, once clients can use it according with their needs.
 There is four main configurations that change both the file system behaviour as the provided guarantees:
@@ -32,7 +32,16 @@ The client can choose if it uses the main memory cache to store open files data,
 The system can be sharing or non-sharing. If non-sharing configuration is used the system does not uses none coordination service.
 Is considered that all files are private (not shared), therefore all the metadata can be stored in the storage clouds.
 
+
 If you have any question, take a look at the [site](http://cloud-of-clouds.github.io/SCFS/), [wiki](https://github.com/cloud-of-clouds/SCFS/wiki/Getting-Started-with-SCFS), or to contact us!
+
+***
+
+### Table of contents
+
+
+- [Getting Started with SCFS](#getting-started-with-scfs)
+
 
 ***
 
