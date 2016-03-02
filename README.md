@@ -185,6 +185,7 @@ Parameter             | Description | Default value
 --sync-to-cloud	| The FSYNC POSIX operation flushes the data to the clouds. If turned off, FSYNC flushes data to local disk. | off
 --non-blocking-cloud | Data is sent to the clouds asynchronously. If turned off, the file close operation will block when data are sent to the clouds. | off
 --non-sharing | The system runs in non-sharing mode of operation. It means that clients are not able to share data between them | off
+-zookeeper | Use Zookeeper as the cordination service used to store system's metadata. If you do not use this flag, the system will assume you will use DepSpace | off 
 -printer | Turn on the debug mode. | off
 
 As you can understand, if the --non-blocking-cloud flag is turned on, the performance of the system is increased while the guarantees offered by the close operation decrease.
