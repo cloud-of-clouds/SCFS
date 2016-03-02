@@ -383,9 +383,9 @@ public class ZookeeperDirectoryService implements DirectoryService {
 
 			return PrivateNameSpaceStats.getFromBytes(data);
 		} catch (KeeperException e) {
-			e.printStackTrace();
 			if(e.code() == Code.NONODE)
 				throw new DirectoryServiceException("Node not exists.");
+			e.printStackTrace();
 			throw new DirectoryServiceConnectionProblemException("Connection Problem");
 		} catch (InterruptedException e) {
 			e.printStackTrace();
