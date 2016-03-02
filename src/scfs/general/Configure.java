@@ -9,6 +9,7 @@ public class Configure {
 	private final String blockCloud = "--non-blocking-cloud";
 	private final String nonSharing = "--non-sharing";
 	private final String deltaTag = "--delta";
+	private final String usingZookeeperTag = "-zookeeper";
 
 
 	private boolean isOptimizedCache;
@@ -21,6 +22,8 @@ public class Configure {
 
 	private String mount;
 	private int clientId;
+	
+	private boolean usingZookeper;
 
 	public Configure(String mount, int clientId){
 
@@ -42,6 +45,8 @@ public class Configure {
 
 		this.delta = 500;
 		
+		this.usingZookeper = false;
+		
 	}
 
 	public boolean setConfiguration(String[] args){
@@ -49,6 +54,8 @@ public class Configure {
 		for(int i = 2; i < args.length; i++){
 			if(args[i].equals(optimizedCache)){
 				isOptimizedCache = true;
+			}else if(args[i].equals(usingZookeeperTag)){
+				usingZookeper = true;
 			}else if(args[i].equals(printer)){
 				isPrinter = true;
 			}else if(args[i].equals(sync)){
@@ -73,6 +80,10 @@ public class Configure {
 			}			
 		}		
 		return flag;
+	}
+	
+	public boolean isUsingZookeper() {
+		return usingZookeper;
 	}
 
 	public int getClientId(){

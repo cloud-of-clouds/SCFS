@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 
-import scfs.directoryService.NoCacheDirectoryService;
+import scfs.directoryService.DirectoryService;
 import scfs.directoryService.NodeMetadata;
 import scfs.directoryService.PrivateNameSpaceStats;
 import scfs.directoryService.exceptions.DirectoryServiceConnectionProblemException;
@@ -20,11 +20,11 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 
 	private Map <String, MetadataCacheEntry> pathToMetadata;
 	private Map <String, MetadataUpdaterTimerTask> tasks;
-	private NoCacheDirectoryService directoryService;
+	private DirectoryService directoryService;
 	private Timer timer;
 	private Map<String , NodeMetadata> buffer;
 
-	public MetadataCacheOnSyncDirectoryService(NoCacheDirectoryService directoryService) {
+	public MetadataCacheOnSyncDirectoryService(DirectoryService directoryService) {
 		this.timer = new Timer();
 		this.directoryService = directoryService;
 		this.pathToMetadata = new ConcurrentHashMap<String, MetadataCacheEntry>();
@@ -224,7 +224,7 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 		try{
 			list = directoryService.getAllLinks(idPath);
 		}catch (DirectoryServiceException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 			return;
 		}
 		for(NodeMetadata m_new : list ){

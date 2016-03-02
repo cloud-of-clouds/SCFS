@@ -152,6 +152,7 @@ public class NoCacheDirectoryService implements DirectoryService{
 	@Override
 	public Collection<NodeMetadata> getAllLinks(String idPath) throws DirectoryServiceException {
 
+		
 		try {
 			long time = System.currentTimeMillis();
 			Printer.println("  -> Start operation rdAll at DepSpace", "azul");

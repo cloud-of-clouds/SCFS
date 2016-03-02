@@ -11,6 +11,7 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -20,11 +21,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
 
 import javax.crypto.SecretKey;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.ZooKeeper;
+
+import com.google.common.io.Files;
+
+import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 import scfs.cache.MetadataCacheOnSyncDirectoryService;
 import scfs.directoryService.DirectoryService;
@@ -34,9 +43,12 @@ import scfs.directoryService.NoCacheDirectoryService;
 import scfs.directoryService.NoSharingDirectoryService;
 import scfs.directoryService.NodeMetadata;
 import scfs.directoryService.PrivateNameSpaceStats;
+import scfs.directoryService.ZookeeperDirectoryService;
 import scfs.directoryService.exceptions.DirectoryServiceConnectionProblemException;
 import scfs.directoryService.exceptions.DirectoryServiceException;
+import scfs.lockService.DepSpaceLockService;
 import scfs.lockService.LockService;
+import scfs.lockService.ZookeeperLockService;
 import scfs.storageService.StorageService;
 import util.Pair;
 import client.DepSpaceAccessor;
@@ -65,10 +77,9 @@ import general.DepSpaceException;
  */
 public class SCFS implements Filesystem3, XattrSupport {
 
-	private static final int LOCK_TIME = 400000; 
+	private static final int LOCK_TIME = 5000; 
 	private int clientId;
 	private FuseStatfs statfs;
-	private DepSpaceAccessor accessor;
 	private StorageService daS;
 	private DirectoryService directoryService;
 	private LockService lockService;
@@ -156,10 +167,26 @@ public class SCFS implements Filesystem3, XattrSupport {
 		} catch (Exception e) { e.printStackTrace(); }
 
 
-		NoCacheDirectoryService noCacheDis = null;
 		if(!config.isNonSharing()){
-			this.accessor = init("SCFS", false, clientId);
-			noCacheDis = new NoCacheDirectoryService(clientId, accessor);
+			DirectoryService noCacheDis=null;
+			if(config.isUsingZookeper()){
+				ZooKeeper zk = initZookeeper();
+				if(zk == null){
+					System.out.println("(-) Unable to initialize Zookeeper!\n Exiting...");
+					System.exit(2);
+				}
+				noCacheDis = new ZookeeperDirectoryService(clientId, zk);
+				this.lockService = new ZookeeperLockService(zk);
+			}else{
+				DepSpaceAccessor accessor = init("SCFS", false, clientId);
+				if(accessor == null){
+					System.out.println("(-) Unable to initialize DepSpace!\n Exiting...");
+					System.exit(2);
+				}
+				noCacheDis = new NoCacheDirectoryService(clientId, accessor);
+				this.lockService = new DepSpaceLockService(accessor, clientId);
+			}
+			
 			this.directoryService = new MetadataCacheOnSyncDirectoryService(noCacheDis);
 		}else{
 			SecretKey k = null;
@@ -176,6 +203,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 				try {
 					String pathId = getNextIdPath();
 					SecretKey key = MyAESCipher.generateSecretKey();
+
 					namespaceStats = new PrivateNameSpaceStats(pathId, key);
 					directoryService.putPrivateNameSpaceMetadata(clientId, namespaceStats);
 
@@ -183,14 +211,13 @@ public class SCFS implements Filesystem3, XattrSupport {
 					e1.printStackTrace();
 					if(e1 instanceof DirectoryServiceConnectionProblemException)
 						System.out.println("Cannot create the private namespace metadata");
-				} catch (Exception e1) {		e1.printStackTrace(); }
+				} catch (Exception e1) { e1.printStackTrace(); }
 			}
 			namespace = new NoSharingDirectoryService(namespaceStats.getIdPath(), namespaceStats.getKey(), true);
 		}
 
 		DirectoryService redirect = new DirectoryServiceRedirect(clientId, directoryService, namespace);
 
-		this.lockService = new LockService(accessor, clientId);
 		this.daS = new StorageService(clientId, config.getIsOptimizedCache(), config.getIsNomBlockCloud(), 4, 0, redirect, lockService);
 		if(config.isNonSharing()){
 			try {
@@ -274,6 +301,8 @@ public class SCFS implements Filesystem3, XattrSupport {
 			Statistics.incGetMeta(System.currentTimeMillis()-time);
 		}
 		FileStats stats = metadata.getStats();
+
+		//		System.out.println("-" + metadata);
 		getattrSetter.set(stats.getInode(), stats.getMode(), stats.getNlink(), Integer.parseInt(System.getProperty("uid")), Integer.parseInt(System.getProperty("gid")),
 				stats.getRdev(), stats.getSize(), stats.getBlocks(), stats.getAtime(),
 				stats.getMtime(), stats.getCtime());
@@ -368,6 +397,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 			FileStats fs = createDefaultFileStats(NodeType.FILE, Long.parseLong(idPath), mode);
 			fs.setMode(mode);
 			fs.setRdev(rdev);
+			fs.setPrivate(false);
 			NodeMetadata m = new NodeMetadata(NodeType.FILE, vec[0], vec[1], fs, idPath, MyAESCipher.generateSecretKey(), new int[]{clientId}, new int[]{clientId});
 
 			long time = System.currentTimeMillis();
@@ -399,7 +429,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 			nm = this.getMetadata(path);
 
-			if ((flags & SCFSConstants.O_ACCMODE) == O_WRONLY || (flags & SCFSConstants.O_ACCMODE) == O_RDWR && !nm.getStats().isPrivate()) {	
+			if (((flags & SCFSConstants.O_ACCMODE) == O_WRONLY || (flags & SCFSConstants.O_ACCMODE) == O_RDWR) && !nm.getStats().isPrivate()) {	
 				if(lockService.tryAcquire(nm.getId_path(), LOCK_TIME)){
 					lockedFiles.put(nm.getId_path(), true);
 				}else{
@@ -424,7 +454,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 	}
 
 	private NodeMetadata getMetadata(String path) throws FuseException{
-		boolean inPNS = true;
+//		boolean inPNS = true;
 		NodeMetadata nm = null;
 		try{
 			nm = namespace.getMetadata(path);
@@ -435,13 +465,13 @@ public class SCFS implements Filesystem3, XattrSupport {
 			try {
 				long time = System.currentTimeMillis();
 				nm = directoryService.getMetadata(path);
-				inPNS=false;
+//				inPNS=false;
 				Statistics.incGetMeta(System.currentTimeMillis() - time);
 			} catch (DirectoryServiceException e1) {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ENOENT);
 			}
 		}
-		nm.getStats().setPrivate(inPNS);
+		//		nm.getStats().setPrivate(inPNS);
 		return nm;
 
 	}
@@ -452,19 +482,22 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[10]++;
 
+		if(path.equals("/.statistics.txt")){
+			byte[] value = Statistics.getReport().concat("\n").concat(getOpsString()).getBytes();
+			for(int i=0;i<numOp.length;i++){
+				numOp[i]=0;
+			}
+			Statistics.reset();
+			try{
+				buf.put(value);
+			}catch (Exception e) {	}
+			return 0;
+		}
+		
 		NodeMetadata metadata = this.getMetadata(path);
-		if (path.equals("/.statistics.txt") || !metadata.isDirectory() && !metadata.getStats().isPending()) {
+		if (!metadata.isDirectory() && !metadata.getStats().isPending()) {
 
-			byte[] value = null;
-
-			if(path.equals("/.statistics.txt")){
-				value = Statistics.getReport().concat("\n").concat(getOpsString()).getBytes();
-				for(int i=0;i<numOp.length;i++){
-					numOp[i]=0;
-				}
-				Statistics.reset();
-			}else
-				value = daS.readData(metadata.getId_path(), (int)offset, buf.capacity(), metadata.getKey(), metadata.getStats().getDataHash(), metadata.getStats().isPending());
+			byte[] value = daS.readData(metadata.getId_path(), (int)offset, buf.capacity(), metadata.getKey(), metadata.getStats().getDataHash(), metadata.getStats().isPending());
 
 			if(value == null)
 				throw new FuseException("Cannot read.").initErrno(FuseException.EIO);
@@ -1378,6 +1411,52 @@ public class SCFS implements Filesystem3, XattrSupport {
 		}
 
 		return accessor;
+	}
+
+	private ZooKeeper initZookeeper(){
+		try {
+			List<String> list = Files.readLines(new File("config/hosts.config"), Charset.forName("UTF-8"));
+			String ip = null,  port = null;
+			for(String s : list){
+				if(s.startsWith("#"))
+					continue;
+				
+				String [] fields = s.split(" ");
+				if(fields.length!=3){
+					System.out.println("(-) malformed config/hosts.config file.");
+					continue;
+				}
+				
+				ip = fields[1];
+				port=fields[2];
+			}
+			
+			if(ip==null || port == null)
+				return null;
+						
+			final CountDownLatch connectedSignal = new CountDownLatch(1);
+			ZooKeeper zk = new ZooKeeper(ip+":"+port, 3000, new Watcher() {
+
+				@Override
+				public void process(WatchedEvent event) {
+					//				System.out.println("(+) " + event);
+					if (event.getState() == KeeperState.SyncConnected) {
+						connectedSignal.countDown();
+					}
+				}
+			});
+
+			connectedSignal.await();
+
+			return zk;
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		return null;
+
 	}
 
 

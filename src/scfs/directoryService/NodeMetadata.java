@@ -111,6 +111,15 @@ public class NodeMetadata implements Cloneable, Externalizable, Serializable{
 	public NodeType getNodeType() {
 		return nodeType;
 	}
+	
+	public void setPath(String path){
+		this.parent = path.substring(0, path.lastIndexOf("/"));
+		if(this.parent.equals(""))
+			this.parent ="/";
+		
+		this.name = path.substring(path.lastIndexOf("/")+1);
+		this.path = genPath();
+	}
 
 	public void setName(String name) {
 		this.name = name;
