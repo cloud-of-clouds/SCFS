@@ -18,10 +18,12 @@
 # args: 1 - mount point
 #       2 - user id 
 
+#-Xdebug -Xrunjdwp:transport=dt_socket,server=y,address="8000"
+
 . ./build.conf
 
 LD_LIBRARY_PATH=./jni:$FUSE_HOME/lib $JDK_HOME/bin/java -Xmx1024m -Duid=$(id -u) -Dgid=$(id -g) \
-   -classpath bin:lib/DepSpace.jar:lib/commons-codec-1.5.jar:lib/AmazonAccess.jar:lib/JReedSolEC.jar:lib/RackAzureAccess.jar:lib/netty-3.1.1.GA.jar:lib/azureblob-1.5.4.jar:lib/commons-lang-2.4.jar:lib/azure-common-1.5.4.jar:lib/fuse-j.jar:lib/PVSS.jar:lib/DepSkyDependencies.jar:lib/fuse-j-javadoc.jar:lib/SMaRt.jar:lib/DepSkyS.jar:lib/commons-io-1.4.jar:lib/GoogleSAccess.jar:lib/groovy-1.0-JSR-06.jar:lib/ \
+   -classpath bin:lib/slf4j-api-1.6.1.jar:lib/log4j-1.2.16.jar:lib/slf4j-log4j12-1.6.1.jar:lib/zookeeper-3.4.8.jar:lib/DepSpace.jar:lib/commons-codec-1.5.jar:lib/AmazonAccess.jar:lib/JReedSolEC.jar:lib/RackAzureAccess.jar:lib/netty-3.1.1.GA.jar:lib/azureblob-1.5.4.jar:lib/commons-lang-2.4.jar:lib/azure-common-1.5.4.jar:lib/fuse-j.jar:lib/PVSS.jar:lib/DepSkyDependencies.jar:lib/fuse-j-javadoc.jar:lib/SMaRt.jar:lib/DepSkyS.jar:lib/commons-io-1.4.jar:lib/GoogleSAccess.jar:lib/groovy-1.0-JSR-06.jar:lib/ \
        -Dorg.apache.commons.logging.Log=fuse.logging.FuseLog \
    -Dfuse.logging.level=WARN \
    scfs.general.SCFS -f -s $1 $2 $3 $4 $5 $6 $7 $8;

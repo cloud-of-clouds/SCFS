@@ -19,7 +19,12 @@
 	<classpathentry kind="lib" path="lib/RackAzureAccess.jar"/>
 	<classpathentry kind="lib" path="lib/SMaRt.jar"/>
 	<classpathentry kind="lib" path="lib/DepSpace.jar"/>
-	<classpathentry kind="lib" path="/home/ricardo/workspaceJava/DepSky/bin"/>
-	<classpathentry kind="lib" path="/home/ricardo/workspaceJava/DepSky/src"/>
+	<classpathentry kind="lib" path="lib/DepSkyS.jar"/>
+	<classpathentry kind="lib" path="lib/jline-0.9.94.jar"/>
+	<classpathentry kind="lib" path="lib/log4j-1.2.16.jar"/>
+	<classpathentry kind="lib" path="lib/netty-3.7.0.Final.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/zookeeper-3.4.8.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
