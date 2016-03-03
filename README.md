@@ -44,6 +44,7 @@ If you have any question, take a look at the [site](http://cloud-of-clouds.githu
 	- [Setting up DepSky](#setting-up-depsky)
 	- [Setting up DepSpace](#setting-up-depspace)
 	- [Deploying DepSpace](#deploying-depspace)
+	- [Setting up ZooKeeper](#setting-up-zookeeper)
 	- [Mounting SCFS](#mounting-scfs)
 		- [Non-Sharing SCFS](#non-sharing-scfs)
 	- [Using SCFS](#using-scfs)
@@ -163,6 +164,8 @@ This script will generate a zip file (DepSpace.zip) with the configurations you 
 After unzip the file, to run the DepSpace in each site, you just need to run the _runDepSpace.sh_ script in each site. You can find this script inside the DepSpace folder after you unzip the file. To execute this script you should run the follow command:
 
 `./runDepSpace.sh <replicaID>`
+
+### Setting up ZooKeeper
 
 ### Mounting SCFS
 To mount SCFS you just need to run the following command in the root of the project:
