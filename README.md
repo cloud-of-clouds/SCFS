@@ -2,7 +2,7 @@
 
 SCFS is a cloud-backed file system that provides strong consistency even on top of eventually-consistent cloud storage services.
 It is build on top of FUSE, thus providing a POSIX-like interface. SCFS provides also a pluggable backend that allows it to work with a single cloud or with a cloud-of-clouds.
-The design, implementation and evaluation of the system is described in our USENIX ATC'14 paper.
+The design, implementation and evaluation of the system is described in our USENIX ATC'14 [paper](http://www.di.fc.ul.pt/~bessani/publications/usenix14-scfs.pdf).
 
 Its main concern is address some of the problems presented on the other existing cloud-backed file systems:
 
