@@ -182,6 +182,7 @@ If you have ZooKeeper in your localhost in the default port (i.e. 2181), this fi
 0 127.0.0.1 2181
 ```
 
+To use Zookeeper to store the system metadata you should use the _-zookeeper_ flag when mounting the system.
 
 ### Mounting SCFS
 To mount SCFS you just need to run the following command in the root of the project:
