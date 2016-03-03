@@ -19,7 +19,7 @@ The figure shows the backend cloud storage as cloud-of-clouds formed by Amazon S
 To store data in this clouds, SCFS uses [DepSky](https://github.com/cloud-of-clouds/depsky). More specifically, uses DepSky-CA protocol once we want address the main cloud storage limitations (see [DepSky](https://github.com/cloud-of-clouds/depsky)).
 SCFS allows also a different backend formed by only one cloud.
 
-The coordination services used by SCFS are DepSpace and ZooKepper. In the figure above they are installed in computing clouds, but they can be installed on any IaaS or in any server. To get more information about theses system please read the referred papers. DepSpace is described on a EuroSys'08 paper and ZooKepper on a Usenix'10 paper.
+The coordination services used by SCFS are DepSpace and ZooKepper. In the figure above they are installed in computing clouds, but they can be installed on any IaaS or in any server. To get more information about theses system please read the referred papers. DepSpace is described on a EuroSys'08 [paper](http://user.das.ufsc.br/~alchieri/papers/acm2008.pdf) and ZooKepper on a Usenix'10 paper.
 
 The SCFS Agent component is the one that implements the most features of the file system. It makes a lot of usage of cache techniques to improve the system performance, to reduce the monetary costs and to increase the data availability. More Specifically it uses a temporary small memory cache to absorb some metadata update bursts, a main memory cache to maintain data of open files, and a bigger disk cache to save all the most recents files used by the client. The last one uses all the free space in disk. After the disk is full it uses LRU policies to create new space.
 
