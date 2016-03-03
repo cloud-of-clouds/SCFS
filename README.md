@@ -167,6 +167,22 @@ After unzip the file, to run the DepSpace in each site, you just need to run the
 
 ### Setting up ZooKeeper
 
+Here we explain how you can configure SCFS to connect to a Zookeeper server. If you need help to deploy ZooKeeper, please take a look at [ZooKeeper Getting Started page](https://zookeeper.apache.org/doc/r3.4.8/zookeeperStarted.html).
+
+To make SCFS use Zookeeper you must change the _hosts.config_ file with the host and port where ZooKeeper is deployed. We used the same format presented in the last section.
+
+```
+#server id, address and port (the ids from 0 to n-1 are the service replicas) 
+0 <host> <port>
+```
+
+If you have ZooKeeper in your localhost in the default port (i.e. 2181), this file must look like:
+```
+#server id, address and port (the ids from 0 to n-1 are the service replicas) 
+0 127.0.0.1 2181
+```
+
+
 ### Mounting SCFS
 To mount SCFS you just need to run the following command in the root of the project:
 
