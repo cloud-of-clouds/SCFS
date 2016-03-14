@@ -3,11 +3,12 @@ import java.util.LinkedList;
 
 import javax.crypto.SecretKey;
 
+import depskys.core.DepSkySDataUnit;
+import depskys.core.LocalDepSkySClient;
+import exceptions.StorageCloudException;
 import scfs.general.Printer;
 import scfs.general.Statistics;
 import util.Pair;
-import depskys.core.DepSkySDataUnit;
-import depskys.core.LocalDepSkySClient;
 
 
 
@@ -16,7 +17,11 @@ public class DepSkyAcessor implements IAccessor{
 	private LocalDepSkySClient localDS;
 
 	public DepSkyAcessor(int clientId){
-		this.localDS = new LocalDepSkySClient(clientId, true);
+		try {
+			this.localDS = new LocalDepSkySClient(clientId, true);
+		} catch (StorageCloudException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public byte[] readMatchingFrom(String fileId, SecretKey key, byte[] hash){
@@ -38,24 +43,6 @@ public class DepSkyAcessor implements IAccessor{
 		return data;
 	}
 	
-	public byte[] readFrom(String fileId, SecretKey key){
-		DepSkySDataUnit dataU = new DepSkySDataUnit(fileId);
-		dataU.clearAllCaches();
-		byte[] data = null;
-		try {
-			Printer.println("  -> Start download at depsky", "verde");
-			long acMil = System.currentTimeMillis();
-			data = localDS.read(dataU);
-			long tempo = System.currentTimeMillis() - acMil;
-			Statistics.incRead(tempo, data.length);
-			Printer.println("  -> End download at depsky", "verde");
-			Printer.println("  -> Download operation took: " + Long.toString(tempo) + " milis", "verde");
-		} catch (Exception e) {
-			Printer.println("Read Error", "verde");
-		}
-
-		return data;
-	}
 
 	@Override
 	public byte[] writeTo(String fileId, byte[] value, SecretKey key,
@@ -95,13 +82,37 @@ public class DepSkyAcessor implements IAccessor{
 	public int setPermition(String fileId, String permition, LinkedList<Pair<String,String>> cannonicalIds){
 		DepSkySDataUnit dataU = new DepSkySDataUnit(fileId);
 		dataU.setUsingErsCodes(true);
+		
+		LinkedList<Pair<String,String[]>> cannIds = new LinkedList<Pair<String,String[]>>();
+		for(Pair<String,String> p : cannonicalIds)
+			cannIds.add(new Pair<String, String[]>(p.getKey(), new String[]{p.getValue()}));
 		try {
-			localDS.setAcl(dataU, permition, cannonicalIds);
+			localDS.setAcl(dataU, permition, cannIds);
 			return 1;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return 0;
 		}
+	}
+
+	@Override
+	public byte[] readFrom(String fileId, SecretKey key) {
+		DepSkySDataUnit dataU = new DepSkySDataUnit(fileId);
+		dataU.clearAllCaches();
+		byte[] data = null;
+		try {
+			Printer.println("  -> Start download at depsky", "verde");
+			long acMil = System.currentTimeMillis();
+			data = localDS.read(dataU);
+			long tempo = System.currentTimeMillis() - acMil;
+			Statistics.incRead(tempo, data.length);
+			Printer.println("  -> End download at depsky", "verde");
+			Printer.println("  -> Download operation took: " + Long.toString(tempo) + " milis", "verde");
+		} catch (Exception e) {
+			Printer.println("Read Error", "verde");
+		}
+
+		return data;
 	}
 
 }

@@ -51,7 +51,14 @@ public class StorageService implements IStorageService{
 		boolean isDepSkyAccessor = true;
 		String accessKey = null;
 		String secretKey = null;
-		if(credentials.size() == 1){
+
+		boolean isLocal = false;
+		for(String[] pair : credentials.get(0)){
+			if(pair[0].equalsIgnoreCase("driver.type") && pair[1].equals("LOCAL"))
+				isLocal = true;
+		}
+		
+		if( credentials.size() == 1 && !isLocal ){
 			for(String[] pair : credentials.get(0)){
 				if(pair[0].equalsIgnoreCase("accessKey")){
 					accessKey = pair[1];

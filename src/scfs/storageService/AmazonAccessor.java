@@ -7,11 +7,11 @@ import java.util.LinkedList;
 
 import javax.crypto.SecretKey;
 
+import amazon.AmazonS3Driver;
+import exceptions.StorageCloudException;
 import scfs.general.Printer;
 import scfs.general.Statistics;
 import util.Pair;
-import amazon.AmazonS3Driver;
-import depskyDep.StorageCloudException;
 
 public class AmazonAccessor implements IAccessor {
 
@@ -36,7 +36,7 @@ public class AmazonAccessor implements IAccessor {
 			String name = fileId.concat(getHexString(hash));
 			Printer.println("  -> Start download from AmazonS3", "verde");
 			long acMil = System.currentTimeMillis();
-			byte[] value = driver.downloadData(null, fileId, name);
+			byte[] value = driver.downloadData(fileId, name, null);
 			long tempo = System.currentTimeMillis() - acMil;
 			Statistics.incRead(tempo, value.length);
 			Printer.println("  -> End download from AmazonS3", "verde");
@@ -56,7 +56,7 @@ public class AmazonAccessor implements IAccessor {
 		try {
 			Printer.println("  -> Start download from AmazonS3", "verde");
 			long acMil = System.currentTimeMillis();
-			byte[] value = driver.downloadData(null, fileId, fileId);
+			byte[] value = driver.downloadData(fileId, fileId, null);
 			long tempo = System.currentTimeMillis() - acMil;
 			Statistics.incRead(tempo, value.length);
 			Printer.println("  -> End download from AmazonS3", "verde");
@@ -77,7 +77,7 @@ public class AmazonAccessor implements IAccessor {
 			String name = fileId.concat(getHexString(hash));
 			Printer.println("  -> Start upload to AmazonS3", "verde");
 			long acMil = System.currentTimeMillis();
-			driver.uploadData(null, fileId, value, name);
+			driver.uploadData(fileId, value, name , null);
 			long tempo = System.currentTimeMillis() - acMil;
 			Statistics.incWrite(tempo, value.length);
 			Printer.println("  -> End upload to AmazonS3 took -> " + tempo, "verde");
@@ -131,14 +131,18 @@ public class AmazonAccessor implements IAccessor {
 	public int setPermition(String fileId, String permition,
 			LinkedList<Pair<String, String>> cannonicalIds) {
 
-		driver.setAcl(null, fileId, cannonicalIds.get(0).getValue(), permition);
+		try {
+			driver.setAcl(fileId, new String[]{cannonicalIds.get(0).getValue()}, permition);
+		} catch (StorageCloudException e) {
+			e.printStackTrace();
+		}
 		return 0;
 	}
 
 	@Override
 	public int delete(String fileId) {
 		try {
-			driver.deleteData(null, null, fileId);
+			driver.deleteData(null, fileId, null);
 		} catch (StorageCloudException e) {
 			e.printStackTrace();
 		}
