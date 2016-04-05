@@ -13,7 +13,7 @@ import java.util.Map.Entry;
 public class FileStats implements  Serializable, Externalizable, Cloneable{
 
 	
-	
+
 	/**
 	 * 
 	 */
