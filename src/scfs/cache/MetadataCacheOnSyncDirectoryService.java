@@ -1,7 +1,6 @@
 package scfs.cache;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +12,6 @@ import scfs.directoryService.NodeMetadata;
 import scfs.directoryService.PrivateNameSpaceStats;
 import scfs.directoryService.exceptions.DirectoryServiceConnectionProblemException;
 import scfs.directoryService.exceptions.DirectoryServiceException;
-import scfs.general.SCFS;
 import scfs.general.Statistics;
 
 public class MetadataCacheOnSyncDirectoryService implements MetadataCache{

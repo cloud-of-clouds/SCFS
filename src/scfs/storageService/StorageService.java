@@ -11,7 +11,6 @@ import javax.crypto.SecretKey;
 
 import scfs.directoryService.DirectoryService;
 import scfs.directoryService.exceptions.DirectoryServiceException;
-import scfs.general.SCFS;
 import scfs.general.Statistics;
 import scfs.lockService.LockService;
 import util.Pair;
