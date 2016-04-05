@@ -1,17 +1,18 @@
 package scfs.general;
 
-
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -77,7 +78,7 @@ import general.DepSpaceException;
  */
 public class SCFS implements Filesystem3, XattrSupport {
 
-	private static final int LOCK_TIME = 5000; 
+	private static final int LOCK_TIME = 5000;
 	private int clientId;
 	private FuseStatfs statfs;
 	private StorageService daS;
@@ -92,7 +93,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 	private Configure config;
 	private FileStats statistics;
 	private int fileNum;
-	private int [] numOp;
+	private int[] numOp;
 	private String[] ops;
 
 	public SCFS(Configure config) throws DepSpaceException {
@@ -101,29 +102,30 @@ public class SCFS implements Filesystem3, XattrSupport {
 			List<String[][]> list = readCredentials();
 			String[] vec = new String[2];
 
-			for(String[][] str : list){
-				for(String[] v : str){
-					if(v[0].equals("driver.type"))
-						vec[0]=v[1];
-					else if(v[0].equals("canonicalId"))
-						vec[1]=v[1];
+			for (String[][] str : list) {
+				for (String[] v : str) {
+					if (v[0].equals("driver.type"))
+						vec[0] = v[1];
+					else if (v[0].equals("canonicalId"))
+						vec[1] = v[1];
 				}
 				l.add(vec);
-				vec = new String[2]; 
+				vec = new String[2];
 			}
 		} catch (FileNotFoundException e) {
 			System.err.println("Accounts credential file not found (accounts.properties)");
 			System.exit(1);
 		} catch (ParseException e) {
-			System.err.println(e.getMessage() + " [ line : "+e.getErrorOffset()+" ]");
+			System.err.println(e.getMessage() + " [ line : " + e.getErrorOffset() + " ]");
 			System.exit(1);
 		}
 
-		ops = new String[]{"chmod", "chown" , "flush", "fsync", "getattr" , "getdir", "link", "mkdir", "mknod", "open", "read", "readlink", "release", "rename", "rmdir", "statfs", "symlink", "truncate", "truncate", "unlink", "utime", "write"};
+		ops = new String[] { "chmod", "chown", "flush", "fsync", "getattr", "getdir", "link", "mkdir", "mknod", "open",
+				"read", "readlink", "release", "rename", "rmdir", "statfs", "symlink", "truncate", "truncate", "unlink",
+				"utime", "write" };
 		numOp = new int[ops.length];
-		for(int i=0;i<numOp.length;i++)
-			numOp[i]=0;
-
+		for (int i = 0; i < numOp.length; i++)
+			numOp[i] = 0;
 
 		this.config = config;
 		System.out.println("Debug = " + config.getIsPrinter());
@@ -139,20 +141,20 @@ public class SCFS implements Filesystem3, XattrSupport {
 		String disId = "NS" + clientId;
 		try {
 			FileInputStream fis = new FileInputStream("config" + File.separator + "bucket_name.properties");
-			Properties props = new Properties();  
-			props.load(fis);  
-			fis.close();  
+			Properties props = new Properties();
+			props.load(fis);
+			fis.close();
 			String name = props.getProperty("ns");
-			if(name.length() == 0){
+			if (name.length() == 0) {
 				char[] randname = new char[10];
-				for(int i = 0; i < 10; i++){
-					char rand = (char)(Math.random() * 26 + 'a');
+				for (int i = 0; i < 10; i++) {
+					char rand = (char) (Math.random() * 26 + 'a');
 					randname[i] = rand;
 				}
 				disId = new String(randname);
 				props.setProperty("ns", disId);
-				props.store(new FileOutputStream("config" + File.separator + "bucket_name.properties") ,"change");
-			}else
+				props.store(new FileOutputStream("config" + File.separator + "bucket_name.properties"), "change");
+			} else
 				disId = name;
 		} catch (FileNotFoundException e1) {
 			e1.printStackTrace();
@@ -164,39 +166,40 @@ public class SCFS implements Filesystem3, XattrSupport {
 		Printer.setPrintAuth(config.getIsPrinter());
 		try {
 			this.defaultKey = MyAESCipher.generateSecretKey();
-		} catch (Exception e) { e.printStackTrace(); }
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
-
-		if(!config.isNonSharing()){
-			DirectoryService noCacheDis=null;
-			if(config.isUsingZookeper()){
+		if (!config.isNonSharing()) {
+			DirectoryService noCacheDis = null;
+			if (config.isUsingZookeper()) {
 				ZooKeeper zk = initZookeeper();
-				if(zk == null){
+				if (zk == null) {
 					System.out.println("(-) Unable to initialize Zookeeper!\n Exiting...");
 					System.exit(2);
 				}
 				noCacheDis = new ZookeeperDirectoryService(clientId, zk);
 				this.lockService = new ZookeeperLockService(zk);
-			}else{
+			} else {
 				DepSpaceAccessor accessor = init("SCFS", false, clientId);
-				if(accessor == null){
+				if (accessor == null) {
 					System.out.println("(-) Unable to initialize DepSpace!\n Exiting...");
 					System.exit(2);
 				}
 				noCacheDis = new NoCacheDirectoryService(clientId, accessor);
 				this.lockService = new DepSpaceLockService(accessor, clientId);
 			}
-			
+
 			this.directoryService = new MetadataCacheOnSyncDirectoryService(noCacheDis);
-		}else{
+		} else {
 			SecretKey k = null;
 			this.directoryService = new NoSharingDirectoryService(disId, k, false);
 		}
 
-		//init PNS
-		if(config.isNonSharing()){
+		// init PNS
+		if (config.isNonSharing()) {
 			namespace = new NoSharingDirectoryService("", null, true);
-		}else{
+		} else {
 			try {
 				namespaceStats = directoryService.getPrivateNameSpaceMetadata();
 			} catch (DirectoryServiceException e) {
@@ -209,27 +212,30 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 				} catch (DirectoryServiceException e1) {
 					e1.printStackTrace();
-					if(e1 instanceof DirectoryServiceConnectionProblemException)
+					if (e1 instanceof DirectoryServiceConnectionProblemException)
 						System.out.println("Cannot create the private namespace metadata");
-				} catch (Exception e1) { e1.printStackTrace(); }
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
 			}
 			namespace = new NoSharingDirectoryService(namespaceStats.getIdPath(), namespaceStats.getKey(), true);
 		}
 
 		DirectoryService redirect = new DirectoryServiceRedirect(clientId, directoryService, namespace);
 
-		this.daS = new StorageService(clientId, config.getIsOptimizedCache(), config.getIsNomBlockCloud(), 4, 0, redirect, lockService);
-		if(config.isNonSharing()){
+		this.daS = new StorageService(clientId, config.getIsOptimizedCache(), config.getIsNomBlockCloud(), 4, 0,
+				redirect, lockService);
+		if (config.isNonSharing()) {
 			try {
-				((NoSharingDirectoryService)directoryService).setStorageService(daS);
+				((NoSharingDirectoryService) directoryService).setStorageService(daS);
 			} catch (IOException e) {
-				//Wrong PASSWORD
+				// Wrong PASSWORD
 				e.printStackTrace();
 				System.out.println("Wrong Password.");
 				daS.deleteData(disId);
 				System.exit(0);
 			}
-		}else{
+		} else {
 			try {
 				namespace.setStorageService(daS);
 			} catch (Exception e) {
@@ -246,7 +252,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		statistics = createDefaultFileStats(NodeType.FILE, Long.parseLong(getNextIdPath()), 0755);
 
-		fileNum=0;
+		fileNum = 0;
 
 		statfs = new FuseStatfs();
 		statfs.blocks = 0;
@@ -268,15 +274,16 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[4]++;
 
-		if(path.equals("/.statistics.txt")){
-			getattrSetter.set(statistics.getInode(), statistics.getMode(), statistics.getNlink(), statistics.getUid(), statistics.getGid(),
-					statistics.getRdev(), Statistics.getReport().length() + getOpsString().length(), statistics.getBlocks(), statistics.getAtime(),
-					statistics.getMtime(), statistics.getCtime());
+		if (path.equals("/.statistics.txt")) {
+			getattrSetter.set(statistics.getInode(), statistics.getMode(), statistics.getNlink(), statistics.getUid(),
+					statistics.getGid(), statistics.getRdev(),
+					Statistics.getReport().length() + getOpsString().length(), statistics.getBlocks(),
+					statistics.getAtime(), statistics.getMtime(), statistics.getCtime());
 			return 0;
 		}
 
 		NodeMetadata metadata = null;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			try {
 				metadata = namespace.getMetadata(path);
 
@@ -289,23 +296,24 @@ public class SCFS implements Filesystem3, XattrSupport {
 				} catch (DirectoryServiceException e1) {
 					throw new FuseException(e1.getMessage()).initErrno(FuseException.ENOENT);
 				}
-				Statistics.incGetMeta(System.currentTimeMillis()-time);
-			} 
-		}else{
+				Statistics.incGetMeta(System.currentTimeMillis() - time);
+			}
+		} else {
 			long time = System.currentTimeMillis();
 			try {
 				metadata = directoryService.getMetadata(path);
 			} catch (DirectoryServiceException e1) {
 				throw new FuseException(e1.getMessage()).initErrno(FuseException.ENOENT);
 			}
-			Statistics.incGetMeta(System.currentTimeMillis()-time);
+			Statistics.incGetMeta(System.currentTimeMillis() - time);
 		}
 		FileStats stats = metadata.getStats();
 
-		//		System.out.println("-" + metadata);
-		getattrSetter.set(stats.getInode(), stats.getMode(), stats.getNlink(), Integer.parseInt(System.getProperty("uid")), Integer.parseInt(System.getProperty("gid")),
-				stats.getRdev(), stats.getSize(), stats.getBlocks(), stats.getAtime(),
-				stats.getMtime(), stats.getCtime());
+		// System.out.println("-" + metadata);
+		getattrSetter.set(stats.getInode(), stats.getMode(), stats.getNlink(),
+				Integer.parseInt(System.getProperty("uid")), Integer.parseInt(System.getProperty("gid")),
+				stats.getRdev(), stats.getSize(), stats.getBlocks(), stats.getAtime(), stats.getMtime(),
+				stats.getCtime());
 
 		return 0;
 	}
@@ -316,8 +324,8 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[5]++;
 
-		if(!config.isNonSharing()){
-			boolean exists=true;
+		if (!config.isNonSharing()) {
+			boolean exists = true;
 			try {
 				long time = System.currentTimeMillis();
 				Collection<NodeMetadata> nodes = directoryService.getNodeChildren(path);
@@ -328,17 +336,17 @@ public class SCFS implements Filesystem3, XattrSupport {
 			} catch (DirectoryServiceConnectionProblemException e) {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 			} catch (DirectoryServiceException e) {
-				exists=false;
-			} 
+				exists = false;
+			}
 			try {
-				for(NodeMetadata n : namespace.getNodeChildren(path)){
+				for (NodeMetadata n : namespace.getNodeChildren(path)) {
 					dirFiller.add(n.getName(), n.getStats().getInode(), n.getStats().getMode());
 				}
 			} catch (DirectoryServiceException e1) {
-				if(!exists)
+				if (!exists)
 					throw new FuseException(e1.getMessage()).initErrno(FuseException.ENOTDIR);
 			}
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				Collection<NodeMetadata> nodes = directoryService.getNodeChildren(path);
@@ -350,10 +358,10 @@ public class SCFS implements Filesystem3, XattrSupport {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 			} catch (DirectoryServiceException e) {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ENOTDIR);
-			} 
+			}
 		}
 
-		if(path.equals("/"))
+		if (path.equals("/"))
 			dirFiller.add(".statistics.txt", statistics.getInode(), statistics.getMode());
 		return 0;
 	}
@@ -369,24 +377,25 @@ public class SCFS implements Filesystem3, XattrSupport {
 			String[] vec = dividePath(path);
 			String idPath = getNextIdPath();
 			FileStats fs = createDefaultFileStats(NodeType.DIR, Long.parseLong(idPath), mode);
-			NodeMetadata m = new NodeMetadata(NodeType.DIR, vec[0], vec[1], fs, idPath, defaultKey, new int[]{clientId}, new int[]{clientId});
+			NodeMetadata m = new NodeMetadata(NodeType.DIR, vec[0], vec[1], fs, idPath, defaultKey,
+					new int[] { clientId }, new int[] { clientId });
 
 			long time = System.currentTimeMillis();
 			directoryService.putMetadata(m);
-			Statistics.incPutMeta(System.currentTimeMillis()-time);
-			//			}
+			Statistics.incPutMeta(System.currentTimeMillis() - time);
+			// }
 		} catch (DirectoryServiceConnectionProblemException e) {
 			throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 		} catch (DirectoryServiceException e) {
 			throw new FuseException("Directory already exists").initErrno(FuseException.EALREADY);
-		} 
+		}
 
 		return 0;
 	}
 
 	@Override
 	public int mknod(String path, int mode, int rdev) throws FuseException {
-		Printer.println("\n :::: MKNOD( " + path + ", "+ mode + " )", "amarelo");
+		Printer.println("\n :::: MKNOD( " + path + ", " + mode + " )", "amarelo");
 
 		numOp[8]++;
 
@@ -398,45 +407,82 @@ public class SCFS implements Filesystem3, XattrSupport {
 			fs.setMode(mode);
 			fs.setRdev(rdev);
 			fs.setPrivate(false);
-			NodeMetadata m = new NodeMetadata(NodeType.FILE, vec[0], vec[1], fs, idPath, MyAESCipher.generateSecretKey(), new int[]{clientId}, new int[]{clientId});
+			NodeMetadata m = new NodeMetadata(NodeType.FILE, vec[0], vec[1], fs, idPath,
+					MyAESCipher.generateSecretKey(), new int[] { clientId }, new int[] { clientId });
 
 			long time = System.currentTimeMillis();
 			directoryService.putMetadata(m);
-			Statistics.incPutMeta(System.currentTimeMillis()-time);
+			Statistics.incPutMeta(System.currentTimeMillis() - time);
 
 			statfs.blocks = statfs.blocks + (SCFSConstants.BLOCK_SIZE - 1) / SCFSConstants.BLOCK_SIZE;
 		} catch (DirectoryServiceConnectionProblemException e) {
 			throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 		} catch (DirectoryServiceException e) {
 			throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
-		}  catch (Exception e) {
+		} catch (Exception e) {
 			throw new FuseException("Impossible to create a secure file").initErrno(FuseException.ECONNABORTED);
 		}
 
 		return 0;
 	}
 
+	public static String getHexHash(byte[] v) {
+		try {
+			return getHexString(MessageDigest.getInstance("SHA-1").digest(v));
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private static String getHexString(byte[] raw) {
+		byte[] hex = new byte[2 * raw.length];
+		int index = 0;
+		for (byte b : raw) {
+			int v = b & 0xFF;
+			hex[index++] = HEX_CHAR_TABLE[v >>> 4];
+			hex[index++] = HEX_CHAR_TABLE[v & 0xF];
+		}
+		try {
+			return new String(hex, "ASCII");
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	// base16 char table (aux in getHexString)
+	private static final byte[] HEX_CHAR_TABLE = { (byte) '0', (byte) '1', (byte) '2', (byte) '3', (byte) '4',
+			(byte) '5', (byte) '6', (byte) '7', (byte) '8', (byte) '9', (byte) 'a', (byte) 'b', (byte) 'c', (byte) 'd',
+			(byte) 'e', (byte) 'f' };
+
 	@Override
 	public int open(String path, int flags, FuseOpenSetter openSetter) throws FuseException {
-		Printer.println("\n :::: OPEN( "	+ path	+ ", " + (((flags & SCFSConstants.O_ACCMODE) == O_RDWR) ? "read_write" : ((flags & SCFSConstants.O_ACCMODE) == O_WRONLY) ? "write" : "read") + " )", "amarelo");
+		Printer.println(
+				"\n :::: OPEN( " + path + ", "
+						+ (((flags & SCFSConstants.O_ACCMODE) == O_RDWR) ? "read_write"
+								: ((flags & SCFSConstants.O_ACCMODE) == O_WRONLY) ? "write" : "read")
+						+ " )",
+				"amarelo");
 
 		numOp[9]++;
 
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 		NodeMetadata nm = null;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 
 			nm = this.getMetadata(path);
 
-			if (((flags & SCFSConstants.O_ACCMODE) == O_WRONLY || (flags & SCFSConstants.O_ACCMODE) == O_RDWR) && !nm.getStats().isPrivate()) {	
-				if(lockService.tryAcquire(nm.getId_path(), LOCK_TIME)){
+			if (((flags & SCFSConstants.O_ACCMODE) == O_WRONLY || (flags & SCFSConstants.O_ACCMODE) == O_RDWR)
+					&& !nm.getStats().isPrivate()) {
+				if (lockService.tryAcquire(nm.getId_path(), LOCK_TIME)) {
 					lockedFiles.put(nm.getId_path(), true);
-				}else{
+				} else {
 					throw new FuseException("No Lock available.").initErrno(FuseException.ENOLCK);
 				}
 			}
-		}else {
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				nm = directoryService.getMetadata(path);
@@ -446,32 +492,31 @@ public class SCFS implements Filesystem3, XattrSupport {
 			}
 		}
 
-
 		daS.updateCache(nm.getId_path(), nm.getKey(), nm.getStats().getDataHash(), nm.getStats().isPending());
 		openSetter.setFh(nm);
 
 		return 0;
 	}
 
-	private NodeMetadata getMetadata(String path) throws FuseException{
-//		boolean inPNS = true;
+	private NodeMetadata getMetadata(String path) throws FuseException {
+		// boolean inPNS = true;
 		NodeMetadata nm = null;
-		try{
+		try {
 			nm = namespace.getMetadata(path);
 
 		} catch (DirectoryServiceConnectionProblemException e) {
 			throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
-		}catch (DirectoryServiceException e) {
+		} catch (DirectoryServiceException e) {
 			try {
 				long time = System.currentTimeMillis();
 				nm = directoryService.getMetadata(path);
-//				inPNS=false;
+				// inPNS=false;
 				Statistics.incGetMeta(System.currentTimeMillis() - time);
 			} catch (DirectoryServiceException e1) {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ENOENT);
 			}
 		}
-		//		nm.getStats().setPrivate(inPNS);
+		// nm.getStats().setPrivate(inPNS);
 		return nm;
 
 	}
@@ -482,28 +527,30 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[10]++;
 
-		if(path.equals("/.statistics.txt")){
+		if (path.equals("/.statistics.txt")) {
 			byte[] value = Statistics.getReport().concat("\n").concat(getOpsString()).getBytes();
-			for(int i=0;i<numOp.length;i++){
-				numOp[i]=0;
+			for (int i = 0; i < numOp.length; i++) {
+				numOp[i] = 0;
 			}
 			Statistics.reset();
-			try{
+			try {
 				buf.put(value);
-			}catch (Exception e) {	}
+			} catch (Exception e) {
+			}
 			return 0;
 		}
-		
+
 		NodeMetadata metadata = this.getMetadata(path);
 		if (!metadata.isDirectory() && !metadata.getStats().isPending()) {
 
-			byte[] value = daS.readData(metadata.getId_path(), (int)offset, buf.capacity(), metadata.getKey(), metadata.getStats().getDataHash(), metadata.getStats().isPending());
+			byte[] value = daS.readData(metadata.getId_path(), (int) offset, buf.capacity(), metadata.getKey(),
+					metadata.getStats().getDataHash(), metadata.getStats().isPending());
 
-			if(value == null)
+			if (value == null)
 				throw new FuseException("Cannot read.").initErrno(FuseException.EIO);
-			try{
+			try {
 				buf.put(value);
-			}catch (Exception e) {
+			} catch (Exception e) {
 			}
 		}
 
@@ -515,9 +562,10 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[20]++;
 
-		Printer.println("\n :::: WRITE( " + path + ", isWritepage: " + isWritepage + ", offset: " + offset + " )", "amarelo");
+		Printer.println("\n :::: WRITE( " + path + ", isWritepage: " + isWritepage + ", offset: " + offset + " )",
+				"amarelo");
 
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		try {
@@ -528,19 +576,21 @@ public class SCFS implements Filesystem3, XattrSupport {
 				a[i] = buf.get();
 				i++;
 			}
-			int size = daS.writeData(metadata.getId_path(), a, (int)offset);
-			if(size==-1)
+			int size = daS.writeData(metadata.getId_path(), a, (int) offset);
+			if (size == -1)
 				throw new FuseException("IOException on write.").initErrno(FuseException.ECONNABORTED);
 
 			NodeMetadata meta = null;
 			try {
 				meta = (NodeMetadata) metadata.clone();
-			} catch (CloneNotSupportedException e) { e.printStackTrace();	}
+			} catch (CloneNotSupportedException e) {
+				e.printStackTrace();
+			}
 			meta.getStats().setSize(size);
 			meta.getStats().setPending(false);
 			metadata.getStats().setSize(size);
 			metadata.getStats().setPending(false);
-			if(!config.isNonSharing() && namespace.containsMetadata(path))
+			if (!config.isNonSharing() && namespace.containsMetadata(path))
 				namespace.insertMetadataInBuffer(metadata.getId_path(), meta);
 			else
 				directoryService.insertMetadataInBuffer(metadata.getId_path(), meta);
@@ -559,12 +609,12 @@ public class SCFS implements Filesystem3, XattrSupport {
 		numOp[13]++;
 
 		Printer.println("\n :::: RENAME( from: " + from + ", to: " + to + " )", "amarelo");
-		if(from.equals("/.statistics.txt"))
+		if (from.equals("/.statistics.txt"))
 			return 0;
 
 		String[] vec = dividePath(to);
-		NodeMetadata metadata=null;
-		if(!config.isNonSharing()){
+		NodeMetadata metadata = null;
+		if (!config.isNonSharing()) {
 			boolean isInPNS;
 			try {
 				metadata = namespace.getMetadata(from);
@@ -580,14 +630,16 @@ public class SCFS implements Filesystem3, XattrSupport {
 				isInPNS = false;
 			}
 
+			try {
+				if (isInPNS) {
+					namespace.updateMetadata(from,
+							new NodeMetadata(metadata.getNodeType(), vec[0], vec[1], metadata.getStats(),
+									metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w()));
+				} else {
+					NodeMetadata node = null;
 
-			try{
-				if(isInPNS){
-					namespace.updateMetadata(from, new NodeMetadata(metadata.getNodeType(), vec[0], vec[1], metadata.getStats(), metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w()));
-				}else{
-					NodeMetadata node=null;
-
-					node = new NodeMetadata(metadata.getNodeType(), vec[0], vec[1], metadata.getStats(), metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
+					node = new NodeMetadata(metadata.getNodeType(), vec[0], vec[1], metadata.getStats(),
+							metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
 
 					long time = System.currentTimeMillis();
 					directoryService.updateMetadata(from, node);
@@ -598,14 +650,15 @@ public class SCFS implements Filesystem3, XattrSupport {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 			} catch (DirectoryServiceException e) {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
-			} 
-		}else{
+			}
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				metadata = directoryService.getMetadata(from);
 				Statistics.incGetMeta(System.currentTimeMillis() - time);
 
-				NodeMetadata node=new NodeMetadata(metadata.getNodeType(), vec[0], vec[1], metadata.getStats(), metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
+				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), vec[0], vec[1], metadata.getStats(),
+						metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
 
 				time = System.currentTimeMillis();
 				directoryService.updateMetadata(from, node);
@@ -621,13 +674,13 @@ public class SCFS implements Filesystem3, XattrSupport {
 	@Override
 	public int chmod(String path, int mode) throws FuseException {
 		Printer.println("\n :::: CHMOD( " + path + ", mode: " + mode + " )", "amarelo");
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		numOp[0]++;
 
-		NodeMetadata metadata=null;
-		if(!config.isNonSharing()){
+		NodeMetadata metadata = null;
+		if (!config.isNonSharing()) {
 			boolean isInPNS;
 			try {
 				metadata = namespace.getMetadata(path);
@@ -649,11 +702,15 @@ public class SCFS implements Filesystem3, XattrSupport {
 			try {
 				FileStats fs = metadata.getStats();
 				fs.setMode(mode);
-				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs, metadata.getId_path(), metadata.getKey(), ((mode & SCFSConstants.S_IRGRP) == 0 && (mode & SCFSConstants.S_IROTH) == 0) ? new int[] { clientId } : null, metadata.getC_w());
+				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(),
+						fs, metadata.getId_path(), metadata.getKey(),
+						((mode & SCFSConstants.S_IRGRP) == 0 && (mode & SCFSConstants.S_IROTH) == 0)
+								? new int[] { clientId } : null,
+						metadata.getC_w());
 
-				if(isInPNS){
+				if (isInPNS) {
 					namespace.updateMetadata(path, node);
-				}else{
+				} else {
 					long time = System.currentTimeMillis();
 					directoryService.updateMetadata(path, node);
 					Statistics.incUpdateMeta(System.currentTimeMillis() - time);
@@ -664,7 +721,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 				e.printStackTrace();
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 			}
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				metadata = directoryService.getMetadata(path);
@@ -675,7 +732,11 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 				FileStats fs = metadata.getStats();
 				fs.setMode(mode);
-				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs, metadata.getId_path(), metadata.getKey(), ((mode & SCFSConstants.S_IRGRP) == 0 && (mode & SCFSConstants.S_IROTH) == 0) ? new int[] { clientId } : null, metadata.getC_w());
+				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(),
+						fs, metadata.getId_path(), metadata.getKey(),
+						((mode & SCFSConstants.S_IRGRP) == 0 && (mode & SCFSConstants.S_IROTH) == 0)
+								? new int[] { clientId } : null,
+						metadata.getC_w());
 
 				time = System.currentTimeMillis();
 				directoryService.updateMetadata(path, node);
@@ -691,12 +752,12 @@ public class SCFS implements Filesystem3, XattrSupport {
 	@Override
 	public int flush(String path, Object fh) throws FuseException {
 		Printer.println("\n :::: FLUSH( " + path + " )", "amarelo");
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		numOp[2]++;
 		NodeMetadata mdata = (NodeMetadata) fh;
-		if(mdata != null && !mdata.getStats().isPending()){
+		if (mdata != null && !mdata.getStats().isPending()) {
 			daS.syncWClouds(mdata.getId_path(), mdata.getKey());
 		}
 
@@ -706,15 +767,15 @@ public class SCFS implements Filesystem3, XattrSupport {
 	@Override
 	public int fsync(String path, Object fh, boolean isDatasync) throws FuseException {
 		Printer.println("\n :::: FSYNC(" + path + ", isDatasync: " + isDatasync + " )", "amarelo");
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		numOp[3]++;
 
 		NodeMetadata nm = (NodeMetadata) fh;
-		if(!config.getIsSync()){
+		if (!config.getIsSync()) {
 			daS.syncWDisk(nm.getId_path());
-		}else{
+		} else {
 			daS.syncWClouds(nm.getId_path(), nm.getKey());
 		}
 
@@ -725,7 +786,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 	public int link(String from, String to) throws FuseException {
 		Printer.println("\n :::: LINK(from: " + from + ", to:" + to + " )", "amarelo");
 
-		if(from.equals("/.statistics.txt"))
+		if (from.equals("/.statistics.txt"))
 			return 0;
 
 		numOp[6]++;
@@ -733,25 +794,27 @@ public class SCFS implements Filesystem3, XattrSupport {
 		try {
 			long time = System.currentTimeMillis();
 			NodeMetadata fromMeta = directoryService.getMetadata(from);
-			Statistics.incGetMeta(System.currentTimeMillis()-time);
+			Statistics.incGetMeta(System.currentTimeMillis() - time);
 			String[] vec = dividePath(to);
-			int nlink = fromMeta.getStats().getNlink()+1;
+			int nlink = fromMeta.getStats().getNlink() + 1;
 			fromMeta.getStats().setNlink(nlink);
-			NodeMetadata m = new NodeMetadata(fromMeta.getNodeType(), vec[0], vec[1], fromMeta.getStats(), fromMeta.getId_path(), fromMeta.getKey(), null, null);
+			NodeMetadata m = new NodeMetadata(fromMeta.getNodeType(), vec[0], vec[1], fromMeta.getStats(),
+					fromMeta.getId_path(), fromMeta.getKey(), null, null);
 			time = System.currentTimeMillis();
 			directoryService.putMetadata(m);
-			Statistics.incPutMeta(System.currentTimeMillis()-time);
-			if(nlink>2){
+			Statistics.incPutMeta(System.currentTimeMillis() - time);
+			if (nlink > 2) {
 				time = System.currentTimeMillis();
 				Collection<NodeMetadata> l = directoryService.getAllLinks(fromMeta.getId_path());
 				Statistics.incGetAllLinksMeta(System.currentTimeMillis() - time);
-				for(NodeMetadata meta : l){
+				for (NodeMetadata meta : l) {
 					FileStats fs = meta.getStats();
 					fs.setNlink(nlink);
-					NodeMetadata nodeMeta = new NodeMetadata(meta.getNodeType(), meta.getParent(), meta.getName(), fs, meta.getId_path(), meta.getKey(), null, null);
+					NodeMetadata nodeMeta = new NodeMetadata(meta.getNodeType(), meta.getParent(), meta.getName(), fs,
+							meta.getId_path(), meta.getKey(), null, null);
 					time = System.currentTimeMillis();
 					directoryService.updateMetadata(meta.getPath(), nodeMeta);
-					Statistics.incUpdateMeta(System.currentTimeMillis()-time);
+					Statistics.incUpdateMeta(System.currentTimeMillis() - time);
 				}
 			}
 		} catch (DirectoryServiceConnectionProblemException e) {
@@ -769,15 +832,15 @@ public class SCFS implements Filesystem3, XattrSupport {
 		Printer.println("\n :::: RELEASE ( " + path + ", flags: " + flags + " )", "amarelo");
 
 		numOp[12]++;
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
-		NodeMetadata nm = ((NodeMetadata)fh);
+		NodeMetadata nm = ((NodeMetadata) fh);
 		daS.cleanMemory(nm.getId_path());
 
-
-		if(!config.isNonSharing()){
-			if (lockedFiles.containsKey(nm.getId_path()) && (flags & SCFSConstants.O_ACCMODE) == O_WRONLY || (flags & SCFSConstants.O_ACCMODE) == O_RDWR) {	
+		if (!config.isNonSharing()) {
+			if (lockedFiles.containsKey(nm.getId_path()) && (flags & SCFSConstants.O_ACCMODE) == O_WRONLY
+					|| (flags & SCFSConstants.O_ACCMODE) == O_RDWR) {
 				daS.releaseData(nm.getId_path());
 				lockedFiles.remove(nm.getId_path());
 			}
@@ -792,24 +855,26 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[17]++;
 
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		NodeMetadata metadata = null;
 
-		if(!config.isNonSharing()){
-			metadata=this.getMetadata(path);
+		if (!config.isNonSharing()) {
+			metadata = this.getMetadata(path);
 
 			try {
 				FileStats fs = metadata.getStats();
 				fs.setBlocks((int) ((size + 511L) / 512L));
 				fs.setSize(size);
 
-				daS.truncData(metadata.getId_path(), (int)size, metadata.getKey(), metadata.getStats().getDataHash(), false, metadata.getStats().isPending());
-				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs, metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
-				if(metadata.getStats().isPrivate()){
+				daS.truncData(metadata.getId_path(), (int) size, metadata.getKey(), metadata.getStats().getDataHash(),
+						false, metadata.getStats().isPending());
+				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(),
+						fs, metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
+				if (metadata.getStats().isPrivate()) {
 					namespace.updateMetadata(path, node);
-				}else{
+				} else {
 					long time = System.currentTimeMillis();
 					directoryService.updateMetadata(path, node);
 					Statistics.incUpdateMeta(System.currentTimeMillis() - time);
@@ -821,7 +886,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 				throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 			}
 
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				metadata = directoryService.getMetadata(path);
@@ -831,8 +896,10 @@ public class SCFS implements Filesystem3, XattrSupport {
 				fs.setBlocks((int) ((size + 511L) / 512L));
 				fs.setSize(size);
 
-				daS.truncData(metadata.getId_path(), (int)size, metadata.getKey(), metadata.getStats().getDataHash(), false, metadata.getStats().isPending());
-				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs, metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
+				daS.truncData(metadata.getId_path(), (int) size, metadata.getKey(), metadata.getStats().getDataHash(),
+						false, metadata.getStats().isPending());
+				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(),
+						fs, metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
 				time = System.currentTimeMillis();
 				directoryService.updateMetadata(path, node);
 				Statistics.incUpdateMeta(System.currentTimeMillis() - time);
@@ -847,7 +914,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 	public int rmdir(String path) throws FuseException {
 		Printer.println("\n :::: RMDIR(" + path + " )", "amarelo");
 		numOp[14]++;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			try {
 				namespace.removeMetadata(path);
 			} catch (DirectoryServiceConnectionProblemException e) {
@@ -856,16 +923,16 @@ public class SCFS implements Filesystem3, XattrSupport {
 				try {
 					long time = System.currentTimeMillis();
 					directoryService.removeMetadata(path);
-					Statistics.incDelMeta(System.currentTimeMillis()-time);
+					Statistics.incDelMeta(System.currentTimeMillis() - time);
 				} catch (DirectoryServiceException e1) {
 					throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 				}
 			}
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				directoryService.removeMetadata(path);
-				Statistics.incDelMeta(System.currentTimeMillis()-time);
+				Statistics.incDelMeta(System.currentTimeMillis() - time);
 			} catch (DirectoryServiceException e1) {
 				throw new FuseException(e1.getMessage()).initErrno(FuseException.ECONNABORTED);
 			}
@@ -878,7 +945,8 @@ public class SCFS implements Filesystem3, XattrSupport {
 	public int statfs(FuseStatfsSetter statfsSetter) throws FuseException {
 		numOp[15]++;
 		Printer.println("\n :::: STATFS()", "amarelo");
-		statfsSetter.set(statfs.blockSize, statfs.blocks, statfs.blocksFree, statfs.blocksAvail, statfs.files, statfs.filesFree, statfs.namelen);
+		statfsSetter.set(statfs.blockSize, statfs.blocks, statfs.blocksFree, statfs.blocksAvail, statfs.files,
+				statfs.filesFree, statfs.namelen);
 		return 0;
 	}
 
@@ -887,7 +955,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 		numOp[16]++;
 
 		Printer.println("\n :::: SYMLINK(from: " + from + ", to:" + to + " )", "ciao");
-		if(from.equals("/.statistics.txt"))
+		if (from.equals("/.statistics.txt"))
 			return 0;
 
 		try {
@@ -936,11 +1004,11 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 		numOp[18]++;
 
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 		NodeMetadata metadata = null;
 		boolean isInPNS = false;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			try {
 				metadata = namespace.getMetadata(path);
 				isInPNS = true;
@@ -954,7 +1022,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 					throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
 				}
 			}
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				metadata = directoryService.getMetadata(path);
@@ -964,16 +1032,16 @@ public class SCFS implements Filesystem3, XattrSupport {
 			}
 		}
 
-		if(metadata.getStats().getNlink() == 1)
+		if (metadata.getStats().getNlink() == 1)
 			daS.deleteData(metadata.getId_path());
 
 		try {
-			if(!config.isNonSharing() && isInPNS){
+			if (!config.isNonSharing() && isInPNS) {
 				namespace.removeMetadata(path);
-			}else{
+			} else {
 				long time = System.currentTimeMillis();
 				directoryService.removeMetadata(path);
-				Statistics.incDelMeta(System.currentTimeMillis()-time);
+				Statistics.incDelMeta(System.currentTimeMillis() - time);
 			}
 		} catch (DirectoryServiceConnectionProblemException e) {
 			throw new FuseException(e.getMessage()).initErrno(FuseException.ECONNABORTED);
@@ -991,15 +1059,15 @@ public class SCFS implements Filesystem3, XattrSupport {
 		numOp[19]++;
 
 		Printer.println("\n :::: UTIME(" + path + ", atime: " + atime + ", mtime: " + mtime + " )", "amarelo");
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		NodeMetadata metadata = null;
 
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 
 			metadata = this.getMetadata(path);
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				metadata = directoryService.getMetadata(path);
@@ -1012,12 +1080,13 @@ public class SCFS implements Filesystem3, XattrSupport {
 		FileStats fs = metadata.getStats();
 		fs.setAtime(atime);
 		fs.setMtime(mtime);
-		NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs, metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
+		NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs,
+				metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
 
 		try {
-			if(!config.isNonSharing() && metadata.getStats().isPrivate()){
+			if (!config.isNonSharing() && metadata.getStats().isPrivate()) {
 				namespace.updateMetadata(path, node);
-			}else{
+			} else {
 				long time = System.currentTimeMillis();
 				directoryService.updateMetadata(path, node);
 				Statistics.incUpdateMeta(System.currentTimeMillis() - time);
@@ -1035,16 +1104,16 @@ public class SCFS implements Filesystem3, XattrSupport {
 	@Override
 	public int chown(String path, int uid, int gid) throws FuseException {
 		Printer.println("\n :::: CHOWN(" + path + "uid: " + uid + ", gid: " + gid + " )", "amarelo");
-		if(path.equals("/.statistics.txt"))
+		if (path.equals("/.statistics.txt"))
 			return 0;
 
 		numOp[1]++;
 
-		NodeMetadata metadata=null;
+		NodeMetadata metadata = null;
 
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			metadata = this.getMetadata(path);
-		}else{
+		} else {
 			try {
 				long time = System.currentTimeMillis();
 				metadata = directoryService.getMetadata(path);
@@ -1057,12 +1126,13 @@ public class SCFS implements Filesystem3, XattrSupport {
 		FileStats fs = metadata.getStats();
 		fs.setUid(uid);
 		fs.setGid(gid);
-		NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs, metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
+		NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(), fs,
+				metadata.getId_path(), metadata.getKey(), metadata.getC_r(), metadata.getC_w());
 
 		try {
-			if(!config.isNonSharing() && metadata.getStats().isPrivate()){
+			if (!config.isNonSharing() && metadata.getStats().isPrivate()) {
 				namespace.updateMetadata(path, node);
-			}else{
+			} else {
 				long time = System.currentTimeMillis();
 				directoryService.updateMetadata(path, node);
 				Statistics.incUpdateMeta(System.currentTimeMillis() - time);
@@ -1076,41 +1146,40 @@ public class SCFS implements Filesystem3, XattrSupport {
 		return 0;
 	}
 
-
-	private String getNextIdPath(){
+	private String getNextIdPath() {
 		return String.valueOf(clientId) + System.currentTimeMillis() + (fileNum++ % 500);
 	}
 
 	public static FileStats createDefaultFileStats(NodeType nodeType, long inode, int mode) {
-		if(nodeType == NodeType.SYMLINK)
+		if (nodeType == NodeType.SYMLINK)
 			mode = FuseFtype.TYPE_SYMLINK | 0777;
-		else if(nodeType == NodeType.DIR)
+		else if (nodeType == NodeType.DIR)
 			mode = FuseFtype.TYPE_DIR | 0755;
 		else
 			mode = FuseFtype.TYPE_FILE | 0644;
 
 		int nlink = 1;
-		int uid = Integer.parseInt(System.getProperty("uid")); 
+		int uid = Integer.parseInt(System.getProperty("uid"));
 		int gid = Integer.parseInt(System.getProperty("gid"));
 		int rdev = 0;
 		int size = 0;
 		long blocks = 0;
 		int currentTime = (int) (System.currentTimeMillis() / 1000L);
 		int atime = currentTime, mtime = currentTime, ctime = currentTime;
-		return new FileStats(inode, mode, nlink, uid, gid, rdev, size, blocks, atime, mtime, ctime, emptyHash, nodeType == NodeType.FILE ? true : false, true);
+		return new FileStats(inode, mode, nlink, uid, gid, rdev, size, blocks, atime, mtime, ctime, emptyHash,
+				nodeType == NodeType.FILE ? true : false, true);
 	}
 
 	@Override
-	public int getxattr(String path, String name, ByteBuffer buf)
-			throws FuseException, BufferOverflowException {
+	public int getxattr(String path, String name, ByteBuffer buf) throws FuseException, BufferOverflowException {
 		Printer.println("\n :::: GETXATTR(" + path + ", name: " + name + " )", "amarelo");
 
 		NodeMetadata m = null;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			m = this.getMetadata(path);
 
 			byte[] array = m.getStats().getXattr().get(name);
-			if(array!=null){
+			if (array != null) {
 				buf.put(array);
 			}
 
@@ -1119,15 +1188,14 @@ public class SCFS implements Filesystem3, XattrSupport {
 	}
 
 	@Override
-	public int getxattrsize(String path, String name, FuseSizeSetter setter)
-			throws FuseException {
+	public int getxattrsize(String path, String name, FuseSizeSetter setter) throws FuseException {
 		Printer.println("\n :::: GETXATTRSIZE(" + path + ", name: " + name + " )", "amarelo");
 
 		NodeMetadata m = null;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			m = this.getMetadata(path);
 			byte[] array = m.getStats().getXattr().get(name);
-			if(array!=null)
+			if (array != null)
 				setter.setSize(array.length);
 		}
 		return 0;
@@ -1138,9 +1206,9 @@ public class SCFS implements Filesystem3, XattrSupport {
 		Printer.println("\n :::: LISTXATTR(" + path + " )", "amarelo");
 
 		NodeMetadata m = null;
-		if(!config.isNonSharing()){
+		if (!config.isNonSharing()) {
 			m = this.getMetadata(path);
-			for(String name : m.getStats().getXattr().keySet())
+			for (String name : m.getStats().getXattr().keySet())
 				list.add(name);
 		}
 		return 0;
@@ -1151,14 +1219,14 @@ public class SCFS implements Filesystem3, XattrSupport {
 		Printer.println("\n :::: REMOVEXATTR(" + path + ", name: " + name + " )", "amarelo");
 
 		NodeMetadata m = null;
-		if(!config.isNonSharing()){
-			m=this.getMetadata(path);
+		if (!config.isNonSharing()) {
+			m = this.getMetadata(path);
 		}
 		byte[] array = m.getStats().getXattr().remove(name);
-		if(array!=null){
+		if (array != null) {
 
 			try {
-				if(m.getStats().isPrivate())
+				if (m.getStats().isPrivate())
 					namespace.updateMetadata(path, m);
 				else
 					directoryService.updateMetadata(path, m);
@@ -1170,72 +1238,72 @@ public class SCFS implements Filesystem3, XattrSupport {
 	}
 
 	@Override
-	public int setxattr(String path, String name, ByteBuffer value, int flags)
-			throws FuseException {
+	public int setxattr(String path, String name, ByteBuffer value, int flags) throws FuseException {
 		value.order(ByteOrder.LITTLE_ENDIAN);
 		boolean updated = false;
 		byte[] buff = new byte[value.remaining()];
 		value.get(buff);
 
 		value.rewind();
-		value.getInt(); value.getInt(); value.getInt(); value.getShort();
+		value.getInt();
+		value.getInt();
+		value.getInt();
+		value.getShort();
 		int perm = value.getShort();
 		int id = value.getInt();
 
 		try {
 			boolean inPNS = true;
 			NodeMetadata m = null;
-			if(!config.isNonSharing()){
+			if (!config.isNonSharing()) {
 				try {
 					m = namespace.getMetadata(path);
 				} catch (DirectoryServiceException e) {
 					inPNS = false;
 				}
-			}else{
-				inPNS=false;
+			} else {
+				inPNS = false;
 			}
-			if(!inPNS)
+			if (!inPNS)
 				m = directoryService.getMetadata(path);
 			m.getStats().getXattr().put(name, buff);
 
-
-			LinkedList<Pair<String, String>> cannonicalIds=new LinkedList<Pair<String,String>>();
-			if(!config.isNonSharing()){
-				try{
+			LinkedList<Pair<String, String>> cannonicalIds = new LinkedList<Pair<String, String>>();
+			if (!config.isNonSharing()) {
+				try {
 					List<String[]> l = directoryService.getCredentials(id);
-					for(String[] sx : l)
+					for (String[] sx : l)
 						cannonicalIds.add(new Pair<String, String>(sx[0], sx[1]));
-				}catch (DirectoryServiceConnectionProblemException e){
+				} catch (DirectoryServiceConnectionProblemException e) {
 					System.err.println("DirectoryServiceConnectionProblemException - getCredential.");
-				}catch (DirectoryServiceException e){
+				} catch (DirectoryServiceException e) {
 					System.err.println("DirectoryServiceException - getCredential.");
 				}
 
+				if (perm != 1) {
+					if (perm == 4 || perm == 5) {
+						daS.setPermition(m.getId_path(), "r", cannonicalIds);
+						updated = privateToPublic(path, m, id);
+					} else if (perm == 2 || perm == 3) {
+						daS.setPermition(m.getId_path(), "w", cannonicalIds);
+						updated = privateToPublic(path, m, id);
 
-				if(perm!=1){
-					if(perm == 4 || perm == 5){
-						daS.setPermition( m.getId_path(),"r", cannonicalIds);
-						updated=privateToPublic(path, m, id);
-					}else if(perm == 2 || perm == 3){
-						daS.setPermition( m.getId_path(),"w", cannonicalIds);
-						updated=privateToPublic(path, m, id);
-
-					}else if(perm == 0){
-						daS.setPermition( m.getId_path(),"", cannonicalIds);
-						if(!m.getStats().isPrivate())
-							updated=publicToPrivate(path, m, id);
-					}else{
-						daS.setPermition( m.getId_path(), "rw",cannonicalIds);
-						updated=privateToPublic(path, m, id);
+					} else if (perm == 0) {
+						daS.setPermition(m.getId_path(), "", cannonicalIds);
+						if (!m.getStats().isPrivate())
+							updated = publicToPrivate(path, m, id);
+					} else {
+						daS.setPermition(m.getId_path(), "rw", cannonicalIds);
+						updated = privateToPublic(path, m, id);
 					}
-				}else{
-					daS.setPermition( m.getId_path(),"",cannonicalIds);
-					updated=publicToPrivate(path, m, id);
+				} else {
+					daS.setPermition(m.getId_path(), "", cannonicalIds);
+					updated = publicToPrivate(path, m, id);
 				}
 			}
 
-			if(!updated){
-				if(!inPNS)
+			if (!updated) {
+				if (!inPNS)
 					directoryService.updateMetadata(path, m);
 				else
 					namespace.updateMetadata(path, m);
@@ -1247,10 +1315,10 @@ public class SCFS implements Filesystem3, XattrSupport {
 		return 0;
 	}
 
-	private String getOpsString(){
+	private String getOpsString() {
 		StringBuilder opsStr = new StringBuilder("FUSE Ops:\n");
-		for(int i=0;i<numOp.length;i++){
-			opsStr.append("\t- " + ops[i].concat("\t\t")+ numOp[i]+"\n");
+		for (int i = 0; i < numOp.length; i++) {
+			opsStr.append("\t- " + ops[i].concat("\t\t") + numOp[i] + "\n");
 		}
 		return opsStr.append("\n").toString();
 	}
@@ -1260,24 +1328,22 @@ public class SCFS implements Filesystem3, XattrSupport {
 		fs.setPrivate(false);
 		m.setStats(fs);
 
-
-		if(!arrayContains(m.getC_r(), id)){
-			int[] cr = m.getC_r() == null ? new int[1] : Arrays.copyOf(m.getC_r(), m.getC_r().length+1);
-			cr[cr.length-1] = id;
+		if (!arrayContains(m.getC_r(), id)) {
+			int[] cr = m.getC_r() == null ? new int[1] : Arrays.copyOf(m.getC_r(), m.getC_r().length + 1);
+			cr[cr.length - 1] = id;
 			m.setC_r(cr);
 		}
 
-		if(!arrayContains(m.getC_w(), id)){
-			int[] cw = m.getC_w() == null ? new int[1] : Arrays.copyOf(m.getC_w(), m.getC_w().length+1);
-			cw[cw.length-1] = id;
+		if (!arrayContains(m.getC_w(), id)) {
+			int[] cw = m.getC_w() == null ? new int[1] : Arrays.copyOf(m.getC_w(), m.getC_w().length + 1);
+			cw[cw.length - 1] = id;
 			m.setC_w(cw);
 		}
 
-		if(m.getC_r().length>1 || m.getC_w().length>1 ){
+		if (m.getC_r().length > 1 || m.getC_w().length > 1) {
 			directoryService.updateMetadata(path, m);
 			return true;
 		}
-
 
 		return false;
 	}
@@ -1288,32 +1354,33 @@ public class SCFS implements Filesystem3, XattrSupport {
 	 * @param m
 	 * @param id
 	 * @return true if the file was pushed to PNS.
-	 * @throws DirectoryServiceException if file already exists in PNS.
+	 * @throws DirectoryServiceException
+	 *             if file already exists in PNS.
 	 */
-	private boolean publicToPrivate(String path, NodeMetadata m, int id) throws DirectoryServiceException{
-		if(id==clientId)
+	private boolean publicToPrivate(String path, NodeMetadata m, int id) throws DirectoryServiceException {
+		if (id == clientId)
 			return false;
 
 		FileStats fs = m.getStats();
 		fs.setPrivate(true);
 		m.setStats(fs);
-		if(m.getC_r().length>0 && arrayContains(m.getC_r(), id)){
-			int[] cr = new int[m.getC_r().length-1];
-			for(int i=0; i<cr.length ; i++)
-				if(m.getC_r()[i]!=id)
+		if (m.getC_r().length > 0 && arrayContains(m.getC_r(), id)) {
+			int[] cr = new int[m.getC_r().length - 1];
+			for (int i = 0; i < cr.length; i++)
+				if (m.getC_r()[i] != id)
 					cr[i] = m.getC_r()[i];
 			m.setC_r(cr);
 		}
 
-		if(m.getC_w().length>0){
-			int[] cw = new int[m.getC_w().length-1];
-			for(int i=0; i<cw.length ; i++)
-				if(m.getC_w()[i]!=id)
+		if (m.getC_w().length > 0) {
+			int[] cw = new int[m.getC_w().length - 1];
+			for (int i = 0; i < cw.length; i++)
+				if (m.getC_w()[i] != id)
 					cw[i] = m.getC_w()[i];
 			m.setC_w(cw);
 		}
 
-		if(m.getC_r().length==1 || m.getC_w().length==1){
+		if (m.getC_r().length == 1 || m.getC_w().length == 1) {
 			namespace.putMetadata(m);
 			directoryService.removeMetadata(path);
 			return true;
@@ -1321,70 +1388,68 @@ public class SCFS implements Filesystem3, XattrSupport {
 		return false;
 	}
 
-	private List<String[][]> readCredentials() throws FileNotFoundException, ParseException{
-		Scanner sc=new Scanner(new File("config"+File.separator+"accounts.properties"));
+	private List<String[][]> readCredentials() throws FileNotFoundException, ParseException {
+		Scanner sc = new Scanner(new File("config" + File.separator + "accounts.properties"));
 		String line;
-		String [] splitLine;
+		String[] splitLine;
 		LinkedList<String[][]> list = new LinkedList<String[][]>();
-		int lineNum =-1;
+		int lineNum = -1;
 		LinkedList<String[]> l2 = new LinkedList<String[]>();
 		boolean firstTime = true;
-		while(sc.hasNext()){
+		while (sc.hasNext()) {
 			lineNum++;
 			line = sc.nextLine();
-			if(line.startsWith("#") || line.equals(""))
+			if (line.startsWith("#") || line.equals(""))
 				continue;
-			else{
+			else {
 				splitLine = line.split("=", 2);
-				if(splitLine.length!=2){
+				if (splitLine.length != 2) {
 					sc.close();
 					throw new ParseException("Bad formated accounts.properties file.", lineNum);
-				}else{
-					if(splitLine[0].equals("driver.type")){
-						if(!firstTime){
-							String[][] array= new String[l2.size()][2];
-							for(int i = 0;i<array.length;i++)
+				} else {
+					if (splitLine[0].equals("driver.type")) {
+						if (!firstTime) {
+							String[][] array = new String[l2.size()][2];
+							for (int i = 0; i < array.length; i++)
 								array[i] = l2.get(i);
 							list.add(array);
 							l2 = new LinkedList<String[]>();
-						}else
+						} else
 							firstTime = false;
 					}
 					l2.add(splitLine);
 				}
 			}
 		}
-		String[][] array= new String[l2.size()][2];
-		for(int i = 0;i<array.length;i++)
+		String[][] array = new String[l2.size()][2];
+		for (int i = 0; i < array.length; i++)
 			array[i] = l2.get(i);
 		list.add(array);
 		sc.close();
 		return list;
 	}
 
-
-	private boolean arrayContains(int[] array, int value){
-		if(array==null)
+	private boolean arrayContains(int[] array, int value) {
+		if (array == null)
 			return false;
-		for(int i : array)
-			if(i==value)
+		for (int i : array)
+			if (i == value)
 				return true;
 		return false;
 
 	}
 
-
 	private String[] dividePath(String path) {
-		if(path.equals("/"))
-			return new String [] {"root", ""};
+		if (path.equals("/"))
+			return new String[] { "root", "" };
 
 		String[] toRet = new String[2];
 		String[] split = path.split("/");
-		toRet[1] = split[split.length-1];
-		if(split.length == 2)
-			toRet[0] = path.substring(0, path.length()-toRet[1].length());
+		toRet[1] = split[split.length - 1];
+		if (split.length == 2)
+			toRet[0] = path.substring(0, path.length() - toRet[1].length());
 		else
-			toRet[0] = path.substring(0, path.length()-toRet[1].length()-1);
+			toRet[0] = path.substring(0, path.length() - toRet[1].length() - 1);
 		return toRet;
 	}
 
@@ -1413,33 +1478,33 @@ public class SCFS implements Filesystem3, XattrSupport {
 		return accessor;
 	}
 
-	private ZooKeeper initZookeeper(){
+	private ZooKeeper initZookeeper() {
 		try {
 			List<String> list = Files.readLines(new File("config/hosts.config"), Charset.forName("UTF-8"));
-			String ip = null,  port = null;
-			for(String s : list){
-				if(s.startsWith("#"))
+			String ip = null, port = null;
+			for (String s : list) {
+				if (s.startsWith("#"))
 					continue;
-				
-				String [] fields = s.split(" ");
-				if(fields.length!=3){
+
+				String[] fields = s.split(" ");
+				if (fields.length != 3) {
 					System.out.println("(-) malformed config/hosts.config file.");
 					continue;
 				}
-				
+
 				ip = fields[1];
-				port=fields[2];
+				port = fields[2];
 			}
-			
-			if(ip==null || port == null)
+
+			if (ip == null || port == null)
 				return null;
-						
+
 			final CountDownLatch connectedSignal = new CountDownLatch(1);
-			ZooKeeper zk = new ZooKeeper(ip+":"+port, 3000, new Watcher() {
+			ZooKeeper zk = new ZooKeeper(ip + ":" + port, 3000, new Watcher() {
 
 				@Override
 				public void process(WatchedEvent event) {
-					//				System.out.println("(+) " + event);
+					// System.out.println("(+) " + event);
 					if (event.getState() == KeeperState.SyncConnected) {
 						connectedSignal.countDown();
 					}
@@ -1459,21 +1524,19 @@ public class SCFS implements Filesystem3, XattrSupport {
 
 	}
 
-
 	public static void main(String[] args) {
 		Runtime.getRuntime().addShutdownHook(new ShutDownThread(args[2], Thread.currentThread()));
 		Log l = LogFactory.getLog(SCFS.class);
 
-
 		String fuseArgs[] = new String[3];
-		String C2FSArgs[] = new String[args.length-2];
+		String C2FSArgs[] = new String[args.length - 2];
 		System.arraycopy(args, 0, fuseArgs, 0, fuseArgs.length);
 		System.arraycopy(args, 2, C2FSArgs, 0, C2FSArgs.length);
 
 		Configure config = new Configure(C2FSArgs[0], new Integer(C2FSArgs[1]));
 		boolean goodMount = config.setConfiguration(C2FSArgs);
 		Printer.println("setConfig Result -> " + goodMount);
-		if(goodMount){
+		if (goodMount) {
 			File f = new File(C2FSArgs[0]);
 			if (!f.exists())
 				while (!f.mkdir())
@@ -1492,6 +1555,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 class ShutDownThread extends Thread {
 	private String mountPoint;
 	private Thread thread;
+
 	public ShutDownThread(String mountPoint, Thread thread) {
 		this.thread = thread;
 		this.mountPoint = mountPoint;
@@ -1499,7 +1563,8 @@ class ShutDownThread extends Thread {
 
 	@SuppressWarnings("deprecation")
 	public void run() {
-		System.out.println("\n\nSCFS ShutDown!!\nPlease authenticate your sudo account to umount the system.\nMake sure you are not using the mountPoint right now.");
+		System.out.println(
+				"\n\nSCFS ShutDown!!\nPlease authenticate your sudo account to umount the system.\nMake sure you are not using the mountPoint right now.");
 		thread.stop();
 		try {
 			Thread.sleep(100);
@@ -1511,4 +1576,3 @@ class ShutDownThread extends Thread {
 		}
 	}
 }
-

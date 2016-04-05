@@ -31,6 +31,7 @@ import scfs.directoryService.exceptions.DirectoryServiceConnectionProblemExcepti
 import scfs.directoryService.exceptions.DirectoryServiceException;
 import scfs.general.NodeType;
 import scfs.general.Printer;
+import scfs.general.SCFS;
 import scfs.general.Statistics;
 
 public class ZookeeperDirectoryService implements DirectoryService {
@@ -102,7 +103,6 @@ public class ZookeeperDirectoryService implements DirectoryService {
 
 				Statistics.incCas(System.currentTimeMillis()-time);
 			} catch (KeeperException e) {
-				System.out.println("MULTI OP - putMetadata");
 				try {
 					if(zk.exists(parentZnode+parsedPath, false)!=null)
 						throw new DirectoryServiceException("Node already exists");
@@ -118,7 +118,7 @@ public class ZookeeperDirectoryService implements DirectoryService {
 							String data = new String(zk.getData(inodesZnode+metadata.getId_path(), false, stat), "UTF-8");
 							zk.transaction()
 							.create(parentZnode+parsedPath, getAsZnodeContent(metadata), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT)
-							.setData(inodesZnode+"/"+metadata.getId_path(), (data + ":" + metadata.getPath()).getBytes(), stat.getVersion())
+							.setData(inodesZnode+metadata.getId_path(), (data + ":" + metadata.getPath()).getBytes(), stat.getVersion())
 							.commit();
 							return;
 						} catch (KeeperException e1) {
@@ -180,7 +180,35 @@ public class ZookeeperDirectoryService implements DirectoryService {
 
 		try {
 			zk.multi(ops);
-		} catch (KeeperException | InterruptedException e) {
+		} catch (KeeperException e ) {
+			if(e.code() == Code.NODEEXISTS){
+				// overwrite file
+				String parsedPath = metadata.getPath().endsWith("/") ? metadata.getPath().substring(0, metadata.getPath().length()-1) : metadata.getPath();
+				String parsedPathFrom = path.endsWith("/") ? path.substring(0, path.length()-1) : path;
+
+				
+				try {
+					Stat stat = zk.exists(inodesZnode+metadata.getId_path(), false);
+					String inode = new String(zk.getData(inodesZnode+metadata.getId_path(), false , stat), "UTF-8");
+					//update info
+					inode = inode.replace(parsedPathFrom, parsedPath);
+					zk.transaction()
+					.delete(parentZnode+parsedPath, -1)
+					.create(parentZnode+parsedPath, getAsZnodeContent(metadata), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT)
+					.setData(inodesZnode+metadata.getId_path(), inode.getBytes(), -1)
+					.delete(parentZnode+parsedPathFrom, -1)
+					.commit();
+				} catch (InterruptedException | KeeperException e1) {
+					System.out.println("(--)" + e.getMessage());
+					throw new DirectoryServiceConnectionProblemException(e.getMessage());
+				} catch (UnsupportedEncodingException e1) {
+					e1.printStackTrace();
+				}
+			}else{
+				System.out.println("(-)" + e.getMessage());
+				throw new DirectoryServiceConnectionProblemException(e.getMessage());
+			}
+		} catch (InterruptedException e) {
 			System.out.println("(-)" + e.getMessage());
 			throw new DirectoryServiceConnectionProblemException(e.getMessage());
 		}
@@ -189,7 +217,8 @@ public class ZookeeperDirectoryService implements DirectoryService {
 
 	private void getAllChildren(String path, NodeMetadata metadata, List<Op> ops) throws DirectoryServiceException{
 		String parsedPath = metadata.getPath().endsWith("/") ? metadata.getPath().substring(0, metadata.getPath().length()-1) : metadata.getPath();
-
+		
+		
 		ops.add(Op.create(parentZnode+parsedPath, getAsZnodeContent(metadata), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT));
 
 		if(metadata.isDirectory()){
@@ -199,6 +228,18 @@ public class ZookeeperDirectoryService implements DirectoryService {
 				String oldPath = m.getPath();
 				m.setParent(metadata.getPath());
 				getAllChildren(oldPath, m, ops);
+			}
+		}else{
+			try {
+				Stat stat = zk.exists(inodesZnode+metadata.getId_path(), false);
+				String inode = new String(zk.getData(inodesZnode+metadata.getId_path(), false , stat), "UTF-8");
+				//update info
+				inode = inode.replace(path, parsedPath);
+				ops.add(Op.setData(inodesZnode+metadata.getId_path(), inode.getBytes(), -1));
+			} catch (KeeperException | InterruptedException e) {
+				e.printStackTrace();
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
 			}
 		}
 
@@ -210,6 +251,7 @@ public class ZookeeperDirectoryService implements DirectoryService {
 
 	@Override
 	public void commitMetadataBuffer(String path, byte[] hash) throws DirectoryServiceException {
+		System.out.println("commitmetadata - " + path + ", " + SCFS.getHexHash(hash));
 		synchronized (buffer) {
 			if(buffer.containsKey(path))
 				updateMetadata(path, buffer.get(path));
@@ -346,7 +388,12 @@ public class ZookeeperDirectoryService implements DirectoryService {
 				Collection<NodeMetadata> res = new ArrayList<NodeMetadata>();
 				for (String fName : data){
 					String parsedPath = fName.endsWith("/") ? fName.substring(0, fName.length()-1):fName;
+					try {
 					res.add(getMetadataFromZnodeContent(zk.getData(parentZnode+parsedPath, false, null)));
+					} catch (KeeperException e) {
+						if(e.code() != Code.NONODE)
+							throw e;
+					}
 				}
 
 				long tempo = System.currentTimeMillis()-time;
@@ -383,9 +430,9 @@ public class ZookeeperDirectoryService implements DirectoryService {
 
 			return PrivateNameSpaceStats.getFromBytes(data);
 		} catch (KeeperException e) {
-			e.printStackTrace();
 			if(e.code() == Code.NONODE)
 				throw new DirectoryServiceException("Node not exists.");
+			e.printStackTrace();
 			throw new DirectoryServiceConnectionProblemException("Connection Problem");
 		} catch (InterruptedException e) {
 			e.printStackTrace();

@@ -1,6 +1,7 @@
 package scfs.cache;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import scfs.directoryService.NodeMetadata;
 import scfs.directoryService.PrivateNameSpaceStats;
 import scfs.directoryService.exceptions.DirectoryServiceConnectionProblemException;
 import scfs.directoryService.exceptions.DirectoryServiceException;
+import scfs.general.SCFS;
 import scfs.general.Statistics;
 
 public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
@@ -215,7 +217,6 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 
 	@Override
 	public void commitMetadataBuffer(String idPath, byte[] hash) throws DirectoryServiceException {
-
 		NodeMetadata m_buffer =null;
 		if(buffer.containsKey(idPath))
 			m_buffer = buffer.get(idPath);
@@ -224,9 +225,10 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 		try{
 			list = directoryService.getAllLinks(idPath);
 		}catch (DirectoryServiceException e) {
-//			e.printStackTrace();
+			e.printStackTrace();
 			return;
 		}
+
 		for(NodeMetadata m_new : list ){
 			if(m_buffer != null)
 				m_new.getStats().setSize(m_buffer.getStats().getSize());
