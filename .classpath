@@ -3,28 +3,43 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/java-7-openjdk-amd64"/>
 	<classpathentry kind="lib" path="lib/AmazonAccess.jar"/>
-	<classpathentry kind="lib" path="lib/azure-common-1.5.4.jar"/>
-	<classpathentry kind="lib" path="lib/azureblob-1.5.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-codec-1.5.jar"/>
 	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
 	<classpathentry kind="lib" path="lib/DepSkyDependencies.jar"/>
 	<classpathentry kind="lib" path="lib/fuse-j-javadoc.jar"/>
 	<classpathentry kind="lib" path="lib/fuse-j.jar"/>
-	<classpathentry kind="lib" path="lib/GoogleSAccess.jar"/>
+	<classpathentry kind="lib" path="lib/GoogleSAccess.jar" sourcepath="/GoogleAccessDriver"/>
 	<classpathentry kind="lib" path="lib/groovy-1.0-JSR-06.jar"/>
 	<classpathentry kind="lib" path="lib/JReedSolEC.jar"/>
 	<classpathentry kind="lib" path="lib/netty-3.1.1.GA.jar"/>
 	<classpathentry kind="lib" path="lib/PVSS.jar"/>
-	<classpathentry kind="lib" path="lib/RackAzureAccess.jar"/>
 	<classpathentry kind="lib" path="lib/SMaRt.jar"/>
 	<classpathentry kind="lib" path="lib/DepSpace.jar"/>
-	<classpathentry kind="lib" path="lib/DepSkyS.jar"/>
+	<classpathentry kind="lib" path="lib/DepSkyS.jar" sourcepath="/DepSky"/>
 	<classpathentry kind="lib" path="lib/jline-0.9.94.jar"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.16.jar"/>
 	<classpathentry kind="lib" path="lib/netty-3.7.0.Final.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.6.1.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.6.1.jar"/>
 	<classpathentry kind="lib" path="lib/zookeeper-3.4.8.jar"/>
+	<classpathentry kind="lib" path="lib/aws-java-sdk-1.7.2.jar"/>
+	<classpathentry kind="lib" path="lib/AzureAccess.jar"/>
+	<classpathentry kind="lib" path="lib/commons-codec-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/httpclient-4.3.3.jar"/>
+	<classpathentry kind="lib" path="lib/httpcore-4.3.2.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-annotations-2.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-core-2.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-core-asl-1.8.1.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-databind-2.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.8.1.jar"/>
+	<classpathentry kind="lib" path="lib/java-xmlbuilder-0.4.jar"/>
+	<classpathentry kind="lib" path="lib/jets3t-0.9.1.jar"/>
+	<classpathentry kind="lib" path="lib/joda-time-2.2.jar"/>
+	<classpathentry kind="lib" path="lib/microsoft-windowsazure-api-0.4.6.jar"/>
+	<classpathentry kind="lib" path="lib/RackspaceAccess.jar"/>
+	<classpathentry kind="lib" path="lib/servlet-api.jar"/>
+	<classpathentry kind="lib" path="lib/guava-19.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
