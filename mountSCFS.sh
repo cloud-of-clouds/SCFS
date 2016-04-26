@@ -23,7 +23,7 @@
 . ./build.conf
 
 LD_LIBRARY_PATH=./jni:$FUSE_HOME/lib $JDK_HOME/bin/java -Xmx1024m -Duid=$(id -u) -Dgid=$(id -g) \
-   -classpath bin:lib/* \
+   -classpath dist/SCFS.jar:lib/* \
        -Dorg.apache.commons.logging.Log=fuse.logging.FuseLog \
    -Dfuse.logging.level=WARN \
    scfs.general.SCFS -f -s $1 $2 $3 $4 $5 $6 $7 $8;
