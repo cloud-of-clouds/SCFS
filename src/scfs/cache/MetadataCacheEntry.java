@@ -16,6 +16,7 @@ public class MetadataCacheEntry {
 		this.lockState = lockState;
 		this.leaseTime = leaseTime;
 	}
+	
 
 	public void setTime(long time) {
 		this.time = time;

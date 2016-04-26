@@ -33,20 +33,26 @@ public class ZookeeperLockService extends LockService{
 			lockedFiles.put(pathId, lockedFiles.get(pathId)+1);
 			return true;
 		}else{
-			try {
-				long t = System.currentTimeMillis();
-				Statistics.incOpen();
-				Printer.println("  -> Start operation insert at Zookeeper", "azul");
-				zk.create(lockName, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
-				long tempo = System.currentTimeMillis()-t;
-				Printer.println("  -> End operation insert at Zookeeper", "azul");
-				Printer.println("  -> Operation insert took: " + Long.toString(tempo) + " milis", "azul");
-				lockedFiles.put(pathId, 1);
-				return true;
-			} catch (KeeperException | InterruptedException e) {
-				return false;
+			while(true){
+				try {
+					long t = System.currentTimeMillis();
+					Statistics.incOpen();
+					Printer.println("  -> Start operation insert at Zookeeper", "azul");
+					zk.create(lockName, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
+					long tempo = System.currentTimeMillis()-t;
+					Printer.println("  -> End operation insert at Zookeeper", "azul");
+					Printer.println("  -> Operation insert took: " + Long.toString(tempo) + " milis", "azul");
+					lockedFiles.put(pathId, 1);
+					return true;
+				} catch (KeeperException | InterruptedException e) {
+					Printer.println("  -> RETYING TO OBTAIN THE LOCK.", "roxo");
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e1) {
+						e1.printStackTrace();
+					}
+				}
 			}
-
 		}
 
 	}

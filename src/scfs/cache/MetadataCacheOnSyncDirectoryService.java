@@ -16,26 +16,28 @@ import scfs.general.Statistics;
 
 public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 
-	public static int DELTA_TIME = 500;
-
+	
+	public int delta;
 	private Map <String, MetadataCacheEntry> pathToMetadata;
 	private Map <String, MetadataUpdaterTimerTask> tasks;
 	private DirectoryService directoryService;
 	private Timer timer;
 	private Map<String , NodeMetadata> buffer;
+	
 
-	public MetadataCacheOnSyncDirectoryService(DirectoryService directoryService) {
+	public MetadataCacheOnSyncDirectoryService(DirectoryService directoryService, int deltaTime) {
 		this.timer = new Timer();
 		this.directoryService = directoryService;
 		this.pathToMetadata = new ConcurrentHashMap<String, MetadataCacheEntry>();
 		this.tasks = new ConcurrentHashMap<String, MetadataUpdaterTimerTask>();
 		this.buffer = new ConcurrentHashMap<String, NodeMetadata>();
+		this.delta = deltaTime;
 	}
 
 	@Override
 	public void putMetadata(NodeMetadata metadata) throws DirectoryServiceException {
 		directoryService.putMetadata(metadata);
-		if(DELTA_TIME > 0)
+		if(delta > 0)
 			pathToMetadata.put(metadata.getPath(), new MetadataCacheEntry(metadata, System.currentTimeMillis(), false, -1));
 	}
 
@@ -47,7 +49,7 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 		if(!inCache(path)){
 			metadata = directoryService.getMetadata(path);
 		}else{
-			if( DELTA_TIME>0 && System.currentTimeMillis() <= (pathToMetadata.get(path).getTime()+DELTA_TIME)){
+			if( delta>0 && System.currentTimeMillis() <= (pathToMetadata.get(path).getTime()+delta)){
 				metadata = pathToMetadata.get(path).getMetadata();
 			}else{
 				pathToMetadata.remove(path);
@@ -57,7 +59,7 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 		}
 
 
-		if(!inCache(path) && DELTA_TIME>0 ){
+		if(!inCache(path) && delta>0 ){
 			pathToMetadata.put(path, new MetadataCacheEntry(metadata, System.currentTimeMillis(), false, -1));
 		}
 		NodeMetadata res = null;
@@ -82,12 +84,12 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 
 	@Override
 	public void updateMetadata(String path, NodeMetadata metadata) throws DirectoryServiceException {
-		if(DELTA_TIME==0){
+		if(delta==0){
 			directoryService.updateMetadata(path, metadata);
 			return;
 		}
 
-		if(!inCache(path) || (inCache(path) && System.currentTimeMillis() > pathToMetadata.get(path).getTime()+DELTA_TIME)){
+		if(!inCache(path) || (inCache(path) && System.currentTimeMillis() > pathToMetadata.get(path).getTime()+delta)){
 			long time = System.currentTimeMillis();
 			getMetadata(path); //bring it to cache
 			Statistics.incGetMeta(System.currentTimeMillis() - time);
@@ -117,7 +119,7 @@ public class MetadataCacheOnSyncDirectoryService implements MetadataCache{
 			pathToMetadata.get(path).setUpdated(metadata);
 			if(!isUpdateTaskRunnig(path)){
 				tasks.put(path, new MetadataUpdaterTimerTask(path, pathToMetadata.get(path).getMetadata(), directoryService, this));
-				long time = DELTA_TIME - (System.currentTimeMillis() - pathToMetadata.get(path).getTime());
+				long time = delta - (System.currentTimeMillis() - pathToMetadata.get(path).getTime());
 				timer.schedule(tasks.get(path),   time < 0 ? 0 : time );
 
 			}

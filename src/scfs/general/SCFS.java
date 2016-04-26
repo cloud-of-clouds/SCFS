@@ -135,7 +135,6 @@ public class SCFS implements Filesystem3, XattrSupport {
 		System.out.println("NonSharing = " + config.isNonSharing());
 		Statistics.reset();
 
-		MetadataCacheOnSyncDirectoryService.DELTA_TIME = this.config.getDelta();
 		this.clientId = config.getClientId();
 
 		String disId = "NS" + clientId;
@@ -190,7 +189,10 @@ public class SCFS implements Filesystem3, XattrSupport {
 				this.lockService = new DepSpaceLockService(accessor, clientId);
 			}
 
-			this.directoryService = new MetadataCacheOnSyncDirectoryService(noCacheDis);
+			if(config.getDelta() == 0)
+				this.directoryService = noCacheDis;
+			else
+				this.directoryService = new MetadataCacheOnSyncDirectoryService(noCacheDis, config.getDelta());
 		} else {
 			SecretKey k = null;
 			this.directoryService = new NoSharingDirectoryService(disId, k, false);
@@ -263,7 +265,7 @@ public class SCFS implements Filesystem3, XattrSupport {
 		statfs.namelen = 2048;
 		emptyHash = new byte[0];
 
-		System.out.println("DELTA = " + MetadataCacheOnSyncDirectoryService.DELTA_TIME);
+		System.out.println("DELTA = " + config.getDelta());
 
 		System.out.println("C2FS mounted.");
 	}
@@ -705,8 +707,8 @@ public class SCFS implements Filesystem3, XattrSupport {
 				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(),
 						fs, metadata.getId_path(), metadata.getKey(),
 						((mode & SCFSConstants.S_IRGRP) == 0 && (mode & SCFSConstants.S_IROTH) == 0)
-								? new int[] { clientId } : null,
-						metadata.getC_w());
+						? new int[] { clientId } : null,
+								metadata.getC_w());
 
 				if (isInPNS) {
 					namespace.updateMetadata(path, node);
@@ -735,8 +737,8 @@ public class SCFS implements Filesystem3, XattrSupport {
 				NodeMetadata node = new NodeMetadata(metadata.getNodeType(), metadata.getParent(), metadata.getName(),
 						fs, metadata.getId_path(), metadata.getKey(),
 						((mode & SCFSConstants.S_IRGRP) == 0 && (mode & SCFSConstants.S_IROTH) == 0)
-								? new int[] { clientId } : null,
-						metadata.getC_w());
+						? new int[] { clientId } : null,
+								metadata.getC_w());
 
 				time = System.currentTimeMillis();
 				directoryService.updateMetadata(path, node);

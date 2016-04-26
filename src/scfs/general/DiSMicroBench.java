@@ -49,7 +49,7 @@ public class DiSMicroBench {
 			e1.printStackTrace();
 		}
 		try {
-			dis = new MetadataCacheOnSyncDirectoryService(new NoCacheDirectoryService(clientId, init("microBench", false, clientId)));
+			dis = new MetadataCacheOnSyncDirectoryService(new NoCacheDirectoryService(clientId, init("microBench", false, clientId)), 500);
 		} catch (DepSpaceException e) {
 			e.printStackTrace();
 			System.exit(0);
